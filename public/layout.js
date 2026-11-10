@@ -90,7 +90,33 @@
       seen[id] = 1;
       objs.push({ id: id, type: ob.type, x: Math.round(ob.x * 100) / 100, z: Math.round(ob.z * 100) / 100, rot: ((ob.rot | 0) % 4 + 4) % 4 });
     }
-    return { layout: { v: 1, w: w, h: h, floor: l.floor.slice(), objects: objs } };
+    var out = { v: 1, w: w, h: h, floor: l.floor.slice(), objects: objs };
+    objs.forEach(function (ob) { snapToWall(out, ob); });
+    return { layout: out };
+  }
+
+  // Wall-mounted items (door, window, logo, boards, screens) always sit on the outer wall,
+  // the edge between floor and empty space, and face into the room.
+  function snapToWall(l, o) {
+    var t = TYPES[o.type];
+    if (!t || !t.wall) return o;
+    var best = null;
+    function cell(i, j) { return i >= 0 && j >= 0 && i < l.w && j < l.h && l.floor[j][i] !== ' '; }
+    for (var j = 0; j < l.h; j++) for (var i = 0; i < l.w; i++) {
+      if (!cell(i, j)) continue;
+      var c = [[0, -1, 0], [-1, 0, 1], [0, 1, 2], [1, 0, 3]];
+      for (var k = 0; k < 4; k++) {
+        var d = c[k];
+        if (cell(i + d[0], j + d[1])) continue;
+        var x, z;
+        if (d[1] !== 0) { x = Math.max(i + 0.5, Math.min(i + 0.5, o.x)); x = Math.max(i, Math.min(i + 1, o.x)); z = j + 0.5; }
+        else { z = Math.max(j, Math.min(j + 1, o.z)); x = i + 0.5; }
+        var dist = Math.hypot(x - o.x, z - o.z) + (d[1] !== 0 ? Math.abs(z - o.z) * 0 : 0);
+        if (!best || dist < best.dist) best = { dist: dist, x: x, z: z, rot: d[2] };
+      }
+    }
+    if (best) { o.x = Math.round(best.x * 2) / 2; o.z = best.z; o.rot = best.rot; }
+    return o;
   }
 
   function toWorld(l) {
@@ -149,5 +175,5 @@
     return spawn(lw);
   }
 
-  return { FLOORS: FLOORS, TYPES: TYPES, LIMITS: LIMITS, defaultLayout: defaultLayout, validate: validate, toWorld: toWorld, floorAt: floorAt, blocked: blocked, seatFor: seatFor, spawn: spawn, randomSpot: randomSpot };
+  return { FLOORS: FLOORS, TYPES: TYPES, LIMITS: LIMITS, defaultLayout: defaultLayout, validate: validate, snapToWall: snapToWall, toWorld: toWorld, floorAt: floorAt, blocked: blocked, seatFor: seatFor, spawn: spawn, randomSpot: randomSpot };
 });

@@ -61,7 +61,7 @@ code{color:var(--gold);font-size:18px;user-select:all}
       <div><b>Map size</b><div class="row"><input id="mw" type="number" min="8" max="40" style="width:72px" aria-label="Width"> x <input id="mh" type="number" min="6" max="30" style="width:72px" aria-label="Height"><button id="resize" type="button">Apply</button></div></div>
       <div><b>Floor style</b><div class="palette" id="floors"></div></div>
       <div><b>Objects</b><div class="palette" id="types"></div></div>
-      <div id="selInfo" class="card" hidden><b id="selName"></b><div class="row"><button id="rot" type="button">Rotate (R)</button><button id="del" class="warn" type="button">Delete</button></div><small>Wall items sit against the wall behind the arrow. Rotate until the arrow points at a wall.</small></div>
+      <div id="selInfo" class="card" hidden><b id="selName"></b><div class="row"><button id="rot" type="button">Rotate (R)</button><button id="del" class="warn" type="button">Delete</button></div><small>Doors, windows, the logo and boards snap to the nearest outer wall by themselves. Drag them along the wall.</small></div>
       <div class="row"><button id="fillAll" type="button">Fill whole map</button></div>
       <div class="row"><button class="go" id="saveLayout" type="button">Save layout</button><button id="resetLayout" class="warn" type="button">Reset to default</button></div>
     </div>
@@ -131,15 +131,15 @@ function layoutEditor(){
     else if(tool==='rect'){rect={a:[Math.floor(p.x),Math.floor(p.z)],b:[Math.floor(p.x),Math.floor(p.z)]};draw()}
     else if(tool==='fill'){flood(Math.floor(p.x),Math.floor(p.z),floor);draw()}
     else if(tool==='select'){sel=hit(p);if(sel)drag={dx:sel.x-p.x,dz:sel.z-p.z};info();draw()}
-    else if(tool==='add'){var o={id:'o'+Date.now().toString(36),type:addType,x:Math.max(0,Math.min(lay.w,snap(p.x))),z:Math.max(0,Math.min(lay.h,snap(p.z))),rot:0};lay.objects.push(o);sel=o;tool='select';tools();info();draw()}
+    else if(tool==='add'){var o={id:'o'+Date.now().toString(36),type:addType,x:Math.max(0,Math.min(lay.w,snap(p.x))),z:Math.max(0,Math.min(lay.h,snap(p.z))),rot:0};L.snapToWall(lay,o);lay.objects.push(o);sel=o;tool='select';tools();info();draw()}
   });
   cv.addEventListener('pointermove',function(e){var p=cellOf(e);
     if(painting){line(last,[Math.floor(p.x),Math.floor(p.z)]);last=[Math.floor(p.x),Math.floor(p.z)];draw()}
     else if(rect){rect.b=[Math.max(0,Math.min(lay.w-1,Math.floor(p.x))),Math.max(0,Math.min(lay.h-1,Math.floor(p.z)))];draw()}
-    else if(drag&&sel){sel.x=Math.max(0,Math.min(lay.w,snap(p.x+drag.dx)));sel.z=Math.max(0,Math.min(lay.h,snap(p.z+drag.dz)));draw()}});
+    else if(drag&&sel){sel.x=Math.max(0,Math.min(lay.w,snap(p.x+drag.dx)));sel.z=Math.max(0,Math.min(lay.h,snap(p.z+drag.dz)));L.snapToWall(lay,sel);draw()}});
   ['pointerup','pointercancel'].forEach(function(ev){cv.addEventListener(ev,function(){if(rect){var x0=Math.min(rect.a[0],rect.b[0]),x1=Math.max(rect.a[0],rect.b[0]),y0=Math.min(rect.a[1],rect.b[1]),y1=Math.max(rect.a[1],rect.b[1]);for(var j=y0;j<=y1;j++)for(var i=x0;i<=x1;i++)setCell(i,j,floor);rect=null;draw()}painting=false;drag=null;last=null})});
   function info(){$('selInfo').hidden=!sel;if(sel)$('selName').textContent=L.TYPES[sel.type].label}
-  function rotate(){if(sel){sel.rot=(sel.rot+1)%4;draw()}}
+  function rotate(){if(sel){if(L.TYPES[sel.type].wall)return;sel.rot=(sel.rot+1)%4;draw()}}
   function del(){if(sel){lay.objects=lay.objects.filter(function(o){return o!==sel});sel=null;info();draw()}}
   $('zoom').oninput=function(){CELL=parseInt($('zoom').value,10);fit();draw()};
   $('fillAll').onclick=function(){for(var j=0;j<lay.h;j++)lay.floor[j]=new Array(lay.w+1).join(floor);draw()};
