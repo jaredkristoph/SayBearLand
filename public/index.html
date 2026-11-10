@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cyberland</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#171433;--panel:#0f0d24;--line:#3b3478;--field:#211d47;--text:#f3f0ff;--muted:#a9a3d6;--mint:#3ee6c4;--gold:#ffd166;--bad:#ff7a90;--font:'Baloo 2','Trebuchet MS',system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:radial-gradient(circle at 15% 10%,#2b255c,transparent 45%),var(--bg);color:var(--text);font-family:var(--font)}
+main{width:min(460px,100%);background:var(--panel);border:3px solid var(--line);border-radius:24px;padding:26px;box-shadow:0 8px 0 #0b0a1c}
+h1{margin:0;font-size:34px;letter-spacing:1px;color:var(--mint)}
+p.sub{margin:2px 0 18px;color:var(--muted)}
+.tabs{display:flex;gap:8px;margin-bottom:16px}
+.tabs button{flex:1}
+label{display:block;margin:12px 0 4px;font-size:13px;font-weight:700;letter-spacing:1px;color:var(--muted)}
+input{width:100%;font:600 18px var(--font);color:var(--text);background:var(--field);border:3px solid var(--line);border-radius:14px;padding:8px 12px}
+input:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+button{font:800 18px var(--font);color:#0f1a17;background:var(--mint);border:3px solid #0b0a1c;border-radius:14px;padding:8px 16px;cursor:pointer;box-shadow:0 4px 0 #0b0a1c}
+button.ghost{color:var(--text);background:var(--field);border-color:var(--line)}
+button.ghost[aria-pressed="true"]{background:var(--mint);color:#0f1a17;border-color:#0b0a1c}
+button.wide{width:100%;margin-top:18px}
+.roles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.roles button{font-size:15px;padding:8px 6px}
+.err{min-height:22px;margin:10px 0 0;color:var(--bad);font-weight:700}
+.pw{margin-top:14px;padding:14px;border:3px dashed var(--gold);border-radius:16px;background:#2a2147}
+.pw small{display:block;color:var(--gold);font-weight:700;letter-spacing:1px}
+.pw code{display:block;margin:6px 0;font:800 30px var(--font);letter-spacing:2px;overflow-wrap:anywhere;user-select:all}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>CYBERLAND</h1>
+  <p class="sub">Your team's jelly office.</p>
+
+  <section id="auth">
+    <div class="tabs" role="tablist">
+      <button class="ghost" id="tab-login" aria-pressed="true" type="button">Log in</button>
+      <button class="ghost" id="tab-signup" aria-pressed="false" type="button">Create account</button>
+    </div>
+    <form id="login">
+      <label for="l-user">USERNAME</label><input id="l-user" autocomplete="username" required>
+      <label for="l-pass">PASSWORD</label><input id="l-pass" type="password" autocomplete="current-password" required>
+      <button class="wide" type="submit">Enter Cyberland</button>
+    </form>
+    <form id="signup" hidden>
+      <label for="s-name">DISPLAY NAME</label><input id="s-name" maxlength="24" autocomplete="nickname" required>
+      <label for="s-user">USERNAME</label><input id="s-user" maxlength="20" autocomplete="username" required>
+      <label>ROLE</label>
+      <div class="roles" id="roles" role="group" aria-label="Role"></div>
+      <button class="wide" type="submit">Create account</button>
+    </form>
+    <div class="pw" id="pw" hidden>
+      <small>TEMPORARY PASSWORD (SHOWN ONCE)</small><code id="pw-code"></code>
+      <p class="sub" style="margin:0 0 10px">Copy it now. You will change it at first login.</p>
+      <button type="button" id="pw-go">Go to login</button>
+    </div>
+  </section>
+
+  <form id="change" hidden>
+    <p class="sub">Choose your own password before you enter.</p>
+    <label for="c-old">TEMPORARY PASSWORD</label><input id="c-old" type="password" autocomplete="current-password" required>
+    <label for="c-new">NEW PASSWORD (8+ CHARACTERS)</label><input id="c-new" type="password" autocomplete="new-password" minlength="8" required>
+    <button class="wide" type="submit">Save and enter</button>
+  </form>
+  <p class="err" id="err" role="alert"></p>
+</main>
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)},err=$('err'),role='Tester';
+var ROLES=['Tester','CCO','Web Developer','Application Developer'];
+function api(path,body){return fetch('/api/'+path,{method:body?'POST':'GET',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'Request failed');return j})})}
+function fail(e){err.textContent=e.message}
+function tab(signup){$('login').hidden=signup;$('signup').hidden=!signup;$('pw').hidden=true;$('tab-login').setAttribute('aria-pressed',!signup);$('tab-signup').setAttribute('aria-pressed',signup);err.textContent=''}
+$('tab-login').onclick=function(){tab(false)};$('tab-signup').onclick=function(){tab(true)};
+ROLES.forEach(function(r){var b=document.createElement('button');b.type='button';b.className='ghost';b.textContent=r;b.setAttribute('aria-pressed',r===role);b.onclick=function(){role=r;[].forEach.call($('roles').children,function(x){x.setAttribute('aria-pressed',x===b)})};$('roles').appendChild(b)});
+$('signup').onsubmit=function(e){e.preventDefault();err.textContent='';
+  api('signup',{name:$('s-name').value,username:$('s-user').value,role:role}).then(function(j){$('signup').hidden=true;$('pw').hidden=false;$('pw-code').textContent=j.temporaryPassword;$('l-user').value=j.username}).catch(fail)};
+$('pw-go').onclick=function(){tab(false);$('l-pass').focus()};
+function enter(user){if(user.mustChangePassword){$('auth').hidden=true;$('change').hidden=false;err.textContent=''}else location.href='/office'}
+$('login').onsubmit=function(e){e.preventDefault();err.textContent='';
+  api('login',{username:$('l-user').value,password:$('l-pass').value}).then(function(j){$('c-old').value=$('l-pass').value;enter(j.user)}).catch(fail)};
+$('change').onsubmit=function(e){e.preventDefault();err.textContent='';
+  api('change-password',{oldPassword:$('c-old').value,newPassword:$('c-new').value}).then(function(){location.href='/office'}).catch(fail)};
+api('me').then(function(j){enter(j.user)}).catch(function(){});
+})();
+</script>
+</body>
+</html>

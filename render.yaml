@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: cyberland
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ADMIN_USERNAMES
+        value: admin
+      - key: KEY_PREFIX
+        value: "cyberland:"

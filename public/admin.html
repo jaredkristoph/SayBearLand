@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cyberland Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#171433;--panel:#0f0d24;--line:#3b3478;--field:#211d47;--text:#f3f0ff;--muted:#a9a3d6;--mint:#3ee6c4;--gold:#ffd166;--bad:#ff7a90;--font:'Baloo 2','Trebuchet MS',system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);padding:0 max(16px,env(safe-area-inset-left,0px))}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:14px 0}
+header h1{margin:0;font-size:26px;color:var(--mint);letter-spacing:1px}
+header a{color:var(--muted);margin-left:auto}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+button,select,input,textarea{font:700 15px var(--font);color:var(--text);background:var(--field);border:3px solid var(--line);border-radius:12px;padding:5px 10px}
+button{cursor:pointer}
+button.on{background:var(--mint);color:#0f1a17;border-color:#0b0a1c}
+button.go{background:var(--mint);color:#0f1a17;border-color:#0b0a1c}
+button.warn{color:var(--bad)}
+input[type=color]{padding:0;width:44px;height:34px}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+section{background:var(--panel);border:3px solid var(--line);border-radius:18px;padding:16px;margin-bottom:24px}
+h2{margin:0 0 4px;font-size:20px}
+p.sub{margin:0 0 12px;color:var(--muted)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.editor{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:14px}
+@media(max-width:900px){.editor{grid-template-columns:1fr}}
+.canvasWrap{overflow:auto;border:3px solid var(--line);border-radius:12px;background:#0b0a1c;max-height:70vh}
+canvas{display:block;cursor:crosshair}
+.side{display:flex;flex-direction:column;gap:10px}
+.palette{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.palette button{font-size:13px;padding:4px 6px;text-align:left}
+.sw{display:inline-block;width:14px;height:14px;border-radius:4px;margin-right:6px;vertical-align:-2px;border:2px solid #0b0a1c}
+.card{background:var(--field);border:3px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px;display:grid;gap:8px}
+.card input,.card textarea,.card select{width:100%}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.msg{min-height:22px;font-weight:700;color:var(--mint)}
+.msg.err{color:var(--bad)}
+img.logo{max-width:256px;max-height:128px;background:#fff;border-radius:10px;border:3px solid var(--line)}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+code{color:var(--gold);font-size:18px;user-select:all}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header><h1>CYBERLAND ADMIN</h1><span class="msg" id="msg" role="status"></span><a href="/office">Back to the office</a></header>
+<nav id="nav"></nav>
+
+<section id="tab-layout">
+  <h2>Office layout</h2>
+  <p class="sub">Paint the floor to change the map shape (empty cells become outside space and get walls automatically). Place desks, plants, doors and more, then save. Everyone online refreshes into the new office.</p>
+  <div class="editor">
+    <div>
+      <div class="row" id="tools"></div>
+      <div class="canvasWrap"><canvas id="cv"></canvas></div>
+    </div>
+    <div class="side">
+      <div><b>Map size</b><div class="row"><input id="mw" type="number" min="8" max="40" style="width:72px" aria-label="Width"> x <input id="mh" type="number" min="6" max="30" style="width:72px" aria-label="Height"><button id="resize" type="button">Apply</button></div></div>
+      <div><b>Floor style</b><div class="palette" id="floors"></div></div>
+      <div><b>Objects</b><div class="palette" id="types"></div></div>
+      <div id="selInfo" class="card" hidden><b id="selName"></b><div class="row"><button id="rot" type="button">Rotate (R)</button><button id="del" class="warn" type="button">Delete</button></div><small>Wall items sit against the wall behind the arrow. Rotate until the arrow points at a wall.</small></div>
+      <div class="row"><button class="go" id="saveLayout" type="button">Save layout</button><button id="resetLayout" class="warn" type="button">Reset to default</button></div>
+    </div>
+  </div>
+</section>
+
+<section id="tab-news" hidden><h2>Announcement board</h2><p class="sub">Shown on the board in the office. Up to 20 posts.</p><div id="newsList"></div><div class="row"><button id="addNews" type="button">Add announcement</button><button class="go" id="saveNews" type="button">Save announcements</button></div></section>
+
+<section id="tab-logo" hidden><h2>Company logo</h2><p class="sub">PNG, JPEG or WebP. It is shrunk to fit and shown on the logo plaque.</p>
+  <div class="row"><img class="logo" id="logoImg" alt="Current logo" hidden><span id="noLogo" class="sub">No logo uploaded yet.</span></div>
+  <div class="row"><input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp" aria-label="Choose logo"><button class="go" id="saveLogo" type="button" disabled>Upload logo</button><button class="warn" id="clearLogo" type="button">Remove logo</button></div></section>
+
+<section id="tab-bots" hidden><h2>Bots</h2><p class="sub">Bots roam the office with a role and costume. Name the CEO bot anything you like.</p><div id="botList"></div><div class="row"><button id="addBot" type="button">Add bot</button><button class="go" id="saveBots" type="button">Save bots</button></div></section>
+
+<section id="tab-mail" hidden><h2>Mail and coins</h2><p class="sub">Coins and outfits only reach players through mail. Send to one person or everyone, and sign it as a bot if you like.</p>
+  <div class="card"><div class="grid2"><select id="mailTo" aria-label="To"></select><input id="mailFrom" maxlength="24" placeholder="From (default: your name), e.g. Boss Bot" aria-label="From"></div>
+  <input id="mailSubj" maxlength="80" placeholder="Subject" aria-label="Subject"><textarea id="mailBody" rows="4" maxlength="1000" placeholder="Message" aria-label="Message"></textarea>
+  <div class="grid2"><select id="mailAtt" aria-label="Attachment"><option value="">No attachment</option><option value="coins">Coins</option><option value="outfit">Outfit</option></select><span><input id="mailAmt" type="number" min="1" max="100000" value="100" aria-label="Coin amount"><select id="mailItem" aria-label="Outfit"></select></span></div>
+  <div class="row"><button class="go" id="mailSend" type="button">Send mail</button></div></div></section>
+
+<section id="tab-people" hidden><h2>People</h2><p class="sub">Reset a password to give someone a new random one. They must change it at login.</p><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th></th></tr></thead><tbody id="people"></tbody></table></section>
+
+<script src="/layout.js"></script>
+<script>
+(function(){
+var L=CLLayout,$=function(i){return document.getElementById(i)};
+function api(method,path,body){return fetch('/api/'+path,{method:method,credentials:'same-origin',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}).then(function(r){return r.json().then(function(j){if(r.status===401){location.href='/';throw new Error('auth')}if(!r.ok)throw new Error(j.error||'Request failed');return j})})}
+function say(t,err){var m=$('msg');m.textContent=t;m.className='msg'+(err?' err':'');clearTimeout(say.t);say.t=setTimeout(function(){m.textContent=''},4000)}
+function fail(e){if(e.message!=='auth')say(e.message,true)}
+function el(tag,attrs,kids){var e=document.createElement(tag);for(var k in attrs||{})e[k]=attrs[k];(kids||[]).forEach(function(c){e.appendChild(typeof c==='string'?document.createTextNode(c):c)});return e}
+
+api('GET','me').then(function(j){if(!j.user.admin){location.href='/office';return}boot()}).catch(fail);
+
+function boot(){
+  var tabs=[['layout','Layout'],['news','Announcements'],['logo','Logo'],['bots','Bots'],['mail','Mail & coins'],['people','People']];
+  tabs.forEach(function(t,i){var b=el('button',{type:'button',textContent:t[1]});b.onclick=function(){show(t[0])};b.id='nb-'+t[0];$('nav').appendChild(b)});
+  function show(n){tabs.forEach(function(t){$('tab-'+t[0]).hidden=t[0]!==n;$('nb-'+t[0]).className=t[0]===n?'on':''});if(n==='people')loadPeople();if(n==='mail'&&window.reloadMailUsers)window.reloadMailUsers()}
+  show('layout');layoutEditor();news();logo();bots();mailTab();
+}
+
+/* ---------- layout editor ---------- */
+var COLORS={c:'#9d95e6',w:'#b9834a',g:'#8a90a8',r:'#ff7eb6',u:'#5d4fb3'},OBJ_COLOR={desk:'#f2e3c4',plant:'#3ddc84',sofa:'#ff9ccb',meetingTable:'#e9d3a3',glass:'#bfe9ff',board:'#ffd166',logo:'#3ee6c4',door:'#ff7eb6',window:'#88d4ff',screen:'#7aa2ff'};
+var CELL=32;
+function layoutEditor(){
+  var lay,cv=$('cv'),g=cv.getContext('2d'),tool='paint',floor='c',addType='desk',sel=null,drag=null,painting=false,last=null;
+  function load(l){lay=JSON.parse(JSON.stringify(l));lay.floor=lay.floor.slice();sel=null;$('mw').value=lay.w;$('mh').value=lay.h;fit();draw();info()}
+  api('GET','layout').then(function(j){load(j.layout)}).catch(fail);
+  function fit(){cv.width=lay.w*CELL;cv.height=lay.h*CELL}
+  var toolDefs=[['paint','Paint floor'],['erase','Erase floor'],['select','Select / move'],['add','Place object']];
+  toolDefs.forEach(function(t){var b=el('button',{type:'button',textContent:t[1]});b.id='tool-'+t[0];b.onclick=function(){tool=t[0];tools()};$('tools').appendChild(b)});
+  function tools(){toolDefs.forEach(function(t){$('tool-'+t[0]).className=t[0]===tool?'on':''});cv.style.cursor=tool==='select'?'default':'crosshair'}tools();
+  Object.keys(L.FLOORS).forEach(function(k){var b=el('button',{type:'button'},[el('span',{className:'sw'}),L.FLOORS[k]]);b.firstChild.style.background=COLORS[k];b.id='fl-'+k;b.onclick=function(){floor=k;tool='paint';tools();pal()};$('floors').appendChild(b)});
+  Object.keys(L.TYPES).forEach(function(k){var b=el('button',{type:'button'},[el('span',{className:'sw'}),L.TYPES[k].label]);b.firstChild.style.background=OBJ_COLOR[k];b.id='ty-'+k;b.onclick=function(){addType=k;tool='add';tools();pal()};$('types').appendChild(b)});
+  function pal(){Object.keys(L.FLOORS).forEach(function(k){$('fl-'+k).className=tool==='paint'&&k===floor?'on':''});Object.keys(L.TYPES).forEach(function(k){$('ty-'+k).className=tool==='add'&&k===addType?'on':''})}pal();
+  var origTools=tools;tools=function(){origTools();pal()};
+
+  function cellOf(e){var r=cv.getBoundingClientRect(),sx=cv.width/r.width,sy=cv.height/r.height;return{x:(e.clientX-r.left)*sx/CELL,z:(e.clientY-r.top)*sy/CELL}}
+  function setCell(i,j,ch){if(i<0||j<0||i>=lay.w||j>=lay.h)return;var row=lay.floor[j];if(row[i]===ch)return;lay.floor[j]=row.slice(0,i)+ch+row.slice(i+1)}
+  function hit(p){for(var i=lay.objects.length-1;i>=0;i--){var o=lay.objects[i],t=L.TYPES[o.type],hw=t.wall?1.2:t.hw,hd=t.wall?.5:t.hd,odd=o.rot%2===1;if(odd){var s=hw;hw=hd;hd=s}if(Math.abs(p.x-o.x)<=Math.max(hw,.4)&&Math.abs(p.z-o.z)<=Math.max(hd,.4))return o}return null}
+  function line(a,b){var ch=tool==='erase'?' ':floor,n=Math.max(Math.abs(b[0]-a[0]),Math.abs(b[1]-a[1]))||1;for(var k=0;k<=n;k++)setCell(Math.round(a[0]+(b[0]-a[0])*k/n),Math.round(a[1]+(b[1]-a[1])*k/n),ch)}
+  var snap=function(v){return Math.round(v*2)/2};
+  cv.addEventListener('pointerdown',function(e){
+    var p=cellOf(e);cv.setPointerCapture(e.pointerId);
+    if(tool==='paint'||tool==='erase'){painting=true;last=[Math.floor(p.x),Math.floor(p.z)];setCell(last[0],last[1],tool==='erase'?' ':floor);draw()}
+    else if(tool==='select'){sel=hit(p);if(sel)drag={dx:sel.x-p.x,dz:sel.z-p.z};info();draw()}
+    else if(tool==='add'){var o={id:'o'+Date.now().toString(36),type:addType,x:Math.max(0,Math.min(lay.w,snap(p.x))),z:Math.max(0,Math.min(lay.h,snap(p.z))),rot:0};lay.objects.push(o);sel=o;tool='select';tools();info();draw()}
+  });
+  cv.addEventListener('pointermove',function(e){var p=cellOf(e);
+    if(painting){line(last,[Math.floor(p.x),Math.floor(p.z)]);last=[Math.floor(p.x),Math.floor(p.z)];draw()}
+    else if(drag&&sel){sel.x=Math.max(0,Math.min(lay.w,snap(p.x+drag.dx)));sel.z=Math.max(0,Math.min(lay.h,snap(p.z+drag.dz)));draw()}});
+  ['pointerup','pointercancel'].forEach(function(ev){cv.addEventListener(ev,function(){painting=false;drag=null;last=null})});
+  function info(){$('selInfo').hidden=!sel;if(sel)$('selName').textContent=L.TYPES[sel.type].label}
+  function rotate(){if(sel){sel.rot=(sel.rot+1)%4;draw()}}
+  function del(){if(sel){lay.objects=lay.objects.filter(function(o){return o!==sel});sel=null;info();draw()}}
+  $('rot').onclick=rotate;$('del').onclick=del;
+  addEventListener('keydown',function(e){if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;if($('tab-layout').hidden)return;if(e.key==='r'||e.key==='R')rotate();if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();del()}});
+
+  $('resize').onclick=function(){
+    var w=parseInt($('mw').value,10),h=parseInt($('mh').value,10);
+    if(!(w>=L.LIMITS.minW&&w<=L.LIMITS.maxW&&h>=L.LIMITS.minH&&h<=L.LIMITS.maxH))return say('Width must be '+L.LIMITS.minW+' to '+L.LIMITS.maxW+' and height '+L.LIMITS.minH+' to '+L.LIMITS.maxH+'.',true);
+    var rows=[];for(var j=0;j<h;j++){var r=j<lay.h?lay.floor[j]:'';r=r.slice(0,w);while(r.length<w)r+='c';rows.push(r)}
+    lay.floor=rows;lay.w=w;lay.h=h;lay.objects=lay.objects.filter(function(o){return o.x<=w&&o.z<=h});sel=null;fit();info();draw();
+  };
+  $('saveLayout').onclick=function(){api('PUT','admin/layout',{layout:lay}).then(function(){say('Layout saved. Players are refreshing.')}).catch(fail)};
+  $('resetLayout').onclick=function(){if(!$('resetLayout').dataset.sure){$('resetLayout').dataset.sure=1;$('resetLayout').textContent='Click again to confirm';setTimeout(function(){delete $('resetLayout').dataset.sure;$('resetLayout').textContent='Reset to default'},3000);return}
+    api('POST','admin/layout/reset',{}).then(function(j){load(j.layout);say('Layout reset.')}).catch(fail)};
+
+  function draw(){
+    g.fillStyle='#0b0a1c';g.fillRect(0,0,cv.width,cv.height);
+    for(var j=0;j<lay.h;j++)for(var i=0;i<lay.w;i++){var ch=lay.floor[j][i];if(ch===' ')continue;g.fillStyle=COLORS[ch];g.fillRect(i*CELL,j*CELL,CELL,CELL);g.fillStyle='rgba(0,0,0,.12)';if((i+j)%2)g.fillRect(i*CELL,j*CELL,CELL,CELL)}
+    g.strokeStyle='rgba(255,255,255,.12)';g.lineWidth=1;g.beginPath();for(var x=0;x<=lay.w;x++){g.moveTo(x*CELL+.5,0);g.lineTo(x*CELL+.5,cv.height)}for(var y=0;y<=lay.h;y++){g.moveTo(0,y*CELL+.5);g.lineTo(cv.width,y*CELL+.5)}g.stroke();
+    lay.objects.forEach(function(o){
+      var t=L.TYPES[o.type],hw=t.wall?1.2:t.hw,hd=t.wall?.3:t.hd,th=o.rot*Math.PI/2;
+      g.save();g.translate(o.x*CELL,o.z*CELL);g.rotate(th);
+      g.fillStyle=OBJ_COLOR[o.type];g.globalAlpha=t.pass?.55:1;g.fillRect(-hw*CELL,-hd*CELL,hw*2*CELL,hd*2*CELL);g.globalAlpha=1;
+      g.lineWidth=o===sel?4:2;g.strokeStyle=o===sel?'#fff':'#0b0a1c';g.strokeRect(-hw*CELL,-hd*CELL,hw*2*CELL,hd*2*CELL);
+      g.fillStyle='#0b0a1c';g.beginPath();g.moveTo(-6,-hd*CELL-2);g.lineTo(6,-hd*CELL-2);g.lineTo(0,-hd*CELL-10);g.fill(); /* arrow = the back (wall side) */
+      g.restore();
+      g.fillStyle='#0b0a1c';g.font='700 11px sans-serif';g.textAlign='center';g.fillText(o.type==='meetingTable'?'table':o.type,o.x*CELL,o.z*CELL+4);
+    });
+  }
+}
+
+/* ---------- announcements ---------- */
+function news(){
+  var items=[];
+  api('GET','announcements').then(function(j){items=j.items;render()}).catch(fail);
+  function render(){var box=$('newsList');box.innerHTML='';items.forEach(function(n,i){
+    var t=el('input',{value:n.title,maxLength:60,placeholder:'Title'}),b=el('textarea',{value:n.body,maxLength:300,rows:2,placeholder:'Message'}),c=el('select');['gold','mint','pink'].forEach(function(k){c.appendChild(el('option',{value:k,textContent:k,selected:n.color===k}))});
+    var d=el('button',{type:'button',className:'warn',textContent:'Delete'});
+    t.oninput=function(){n.title=t.value};b.oninput=function(){n.body=b.value};c.onchange=function(){n.color=c.value};d.onclick=function(){items.splice(i,1);render()};
+    box.appendChild(el('div',{className:'card'},[t,b,el('div',{className:'row'},[c,d])]))})}
+  $('addNews').onclick=function(){if(items.length<20){items.push({id:'n'+Date.now().toString(36),title:'',body:'',color:'gold'});render()}};
+  $('saveNews').onclick=function(){api('PUT','admin/announcements',{items:items}).then(function(j){items=j.items;render();say('Announcements saved.')}).catch(fail)};
+}
+
+/* ---------- logo ---------- */
+function logo(){
+  var pending=null;
+  function showImg(u){$('logoImg').hidden=!u;$('noLogo').hidden=!!u;if(u)$('logoImg').src=u}
+  api('GET','logo').then(function(j){showImg(j.dataUrl)}).catch(fail);
+  $('logoFile').onchange=function(){
+    var f=$('logoFile').files[0];if(!f)return;
+    var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){
+      var s=Math.min(1,512/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      pending=c.toDataURL('image/png');if(pending.length>480000)pending=c.toDataURL('image/jpeg',.8);
+      if(pending.length>480000){pending=null;say('That image is too detailed. Try a simpler or smaller one.',true);return}
+      showImg(pending);$('saveLogo').disabled=false};im.onerror=function(){say('Could not read that image.',true)};im.src=r.result};r.readAsDataURL(f)};
+  $('saveLogo').onclick=function(){api('PUT','admin/logo',{dataUrl:pending}).then(function(){$('saveLogo').disabled=true;say('Logo saved.')}).catch(fail)};
+  $('clearLogo').onclick=function(){api('PUT','admin/logo',{dataUrl:null}).then(function(){showImg(null);pending=null;say('Logo removed.')}).catch(fail)};
+}
+
+/* ---------- bots ---------- */
+function bots(){
+  var list=[],roles=[],costumes=[];
+  api('GET','bots').then(function(j){list=j.bots;roles=j.roles;costumes=j.costumes;render()}).catch(fail);
+  function hex(n){return '#'+n.toString(16).padStart(6,'0')}
+  function render(){var box=$('botList');box.innerHTML='';list.forEach(function(b,i){
+    var name=el('input',{value:b.name,maxLength:16,placeholder:'Name'}),role=el('select'),cos=el('select'),col=el('input',{type:'color',value:hex(b.color)}),sp=el('input',{type:'number',value:b.speed||1.5,min:.5,max:3,step:.1}),del=el('button',{type:'button',className:'warn',textContent:'Remove'});
+    roles.forEach(function(r){role.appendChild(el('option',{value:r,textContent:r,selected:b.role===r}))});costumes.forEach(function(c){cos.appendChild(el('option',{value:c,textContent:c,selected:b.costume===c}))});
+    name.oninput=function(){b.name=name.value};role.onchange=function(){b.role=role.value};cos.onchange=function(){b.costume=cos.value};col.oninput=function(){b.color=parseInt(col.value.slice(1),16)};sp.oninput=function(){b.speed=parseFloat(sp.value)||1.5};del.onclick=function(){list.splice(i,1);render()};
+    box.appendChild(el('div',{className:'card'},[name,el('div',{className:'grid2'},[role,cos]),el('div',{className:'row'},[el('span',{textContent:'Colour'}),col,el('span',{textContent:'Speed'}),sp,del])]))})}
+  $('addBot').onclick=function(){if(list.length<12){list.push({name:'New Bot',role:'Tester',costume:'robot',color:0xc9b6ff,speed:1.5});render()}};
+  $('saveBots').onclick=function(){api('PUT','admin/bots',{bots:list}).then(function(j){list=j.bots;render();say('Bots saved.')}).catch(fail)};
+}
+
+/* ---------- mail ---------- */
+function mailTab(){
+  var ITEMS=[['costume:robot','Robot suit'],['costume:crown','Gold crown'],['color:ffd166','Gold body'],['color:c9b6ff','Lavender body'],['color:ff5d5d','Ruby body']];
+  ITEMS.forEach(function(i){$('mailItem').appendChild(el('option',{value:i[0],textContent:i[1]}))});
+  function sync(){$('mailAmt').hidden=$('mailAtt').value!=='coins';$('mailItem').hidden=$('mailAtt').value!=='outfit'}$('mailAtt').onchange=sync;sync();
+  window.reloadMailUsers=function(){api('GET','users').then(function(j){var s=$('mailTo'),v=s.value;s.innerHTML='';s.appendChild(el('option',{value:'*',textContent:'Everyone'}));j.users.forEach(function(u){s.appendChild(el('option',{value:u.username,textContent:u.name+' ('+u.username+')'}))});if(v)s.value=v}).catch(fail)};window.reloadMailUsers();
+  $('mailSend').onclick=function(){
+    var t=$('mailAtt').value,att=t==='coins'?{type:'coins',amount:parseInt($('mailAmt').value,10)}:t==='outfit'?{type:'outfit',item:$('mailItem').value}:null;
+    api('POST','mail/send',{to:$('mailTo').value,fromName:$('mailFrom').value,subject:$('mailSubj').value,body:$('mailBody').value,attachment:att}).then(function(j){say('Sent to '+j.sent+' player'+(j.sent===1?'':'s')+'.');$('mailSubj').value='';$('mailBody').value=''}).catch(fail)};
+}
+
+/* ---------- people ---------- */
+function loadPeople(){
+  api('GET','admin/users').then(function(j){var tb=$('people');tb.innerHTML='';j.users.forEach(function(u){
+    var cell=el('td'),btn=el('button',{type:'button',textContent:'Reset password'});
+    btn.onclick=function(){api('POST','admin/reset-password',{username:u.username}).then(function(r){cell.innerHTML='';cell.appendChild(document.createTextNode('New password (shown once): '));cell.appendChild(el('code',{textContent:r.temporaryPassword}))}).catch(fail)};cell.appendChild(btn);
+    tb.appendChild(el('tr',{},[el('td',{textContent:u.name+(u.admin?' (admin)':'')}),el('td',{textContent:u.username}),el('td',{textContent:u.role}),cell]))})}).catch(fail);
+}
+})();
+</script>
+</body>
+</html>
