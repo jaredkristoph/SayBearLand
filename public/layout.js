@@ -13,39 +13,53 @@
     sofa: { label: 'Sofa', hw: 1.9, hd: 0.7 },
     meetingTable: { label: 'Meeting table', hw: 2.2, hd: 1 },
     glass: { label: 'Glass wall', hw: 3.8, hd: 0.1, pass: true },
+    divider: { label: 'Room divider', hw: 2, hd: 0.15 },
+    stall: { label: 'Toilet stall', hw: 1, hd: 1 },
+    toilet: { label: 'Toilet', hw: 0.45, hd: 0.5 },
+    sink: { label: 'Sink + mirror', hw: 1, hd: 0.4 },
+    waterCooler: { label: 'Water cooler', hw: 0.4, hd: 0.4 },
+    fountain: { label: 'Fountain', hw: 1.1, hd: 1.1 },
+    aquarium: { label: 'Aquarium', hw: 1.3, hd: 0.55 },
     board: { label: 'Announcement board', wall: true },
+    whiteboard: { label: 'Whiteboard (draw)', wall: true, draw: true },
     logo: { label: 'Logo plaque', wall: true },
-    door: { label: 'Door', wall: true },
+    door: { label: 'Wall door (decor)', wall: true },
+    doorway: { label: 'Door (walk-through)', hw: 0.9, hd: 0.15, pass: true },
     window: { label: 'Window', wall: true },
     screen: { label: 'Wall screen', wall: true },
   };
-  var LIMITS = { minW: 8, maxW: 40, minH: 6, maxH: 30, maxObjects: 300 };
+  var LIMITS = { minW: 8, maxW: 60, minH: 6, maxH: 40, maxObjects: 500 };
 
   function defaultLayout() {
-    var w = 24, h = 16, rows = [];
-    for (var j = 0; j < h; j++) {
-      var row = '';
-      for (var i = 0; i < w; i++) {
-        var c = 'c';
-        if (i >= 16 && i <= 23 && j >= 1 && j <= 7) c = 'u';
-        if (i >= 9 && i <= 14 && j >= 12 && j <= 14) c = 'r';
-        row += c;
-      }
-      rows.push(row);
-    }
+    var w = 40, h = 28, g = [];
+    for (var j = 0; j < h; j++) { g.push([]); for (var i = 0; i < w; i++) g[j].push('c'); }
+    var fill = function (x0, y0, x1, y1, ch) { for (var j = y0; j <= y1; j++) for (var i = x0; i <= x1; i++) g[j][i] = ch; };
+    fill(28, 1, 38, 9, 'u');   // meeting room carpet
+    fill(16, 21, 24, 26, 'r'); // lounge carpet
+    fill(2, 19, 10, 26, 'g');  // restroom tile
+    fill(29, 19, 38, 26, 'w'); // pantry wood
     var o = function (id, type, x, z, rot) { return { id: id, type: type, x: x, z: z, rot: rot || 0 }; };
-    return {
-      v: 1, w: w, h: h, floor: rows,
-      objects: [
-        o('d1', 'desk', 4, 4.5), o('d2', 'desk', 8.5, 4.5), o('d3', 'desk', 4, 9), o('d4', 'desk', 8.5, 9),
-        o('mt', 'meetingTable', 20, 4.4), o('gl', 'glass', 20, 7.6), o('sc', 'screen', 20, 0.5),
-        o('sf', 'sofa', 12, 14.2),
-        o('p1', 'plant', 1, 1), o('p2', 'plant', 23, 1), o('p3', 'plant', 1, 15), o('p4', 'plant', 23, 15),
-        o('p5', 'plant', 6.5, 14.4), o('p6', 'plant', 17.5, 14.4),
-        o('bd', 'board', 12, 0.5), o('lg', 'logo', 5.5, 0.5), o('dr', 'door', 16.8, 0.5),
-        o('w1', 'window', 2.5, 0.5), o('w2', 'window', 21.5, 0.5),
-      ],
-    };
+    var objs = [
+      // work area: two rows of desks
+      o('d1', 'desk', 6, 6.5), o('d2', 'desk', 11, 6.5), o('d3', 'desk', 16, 6.5), o('d4', 'desk', 21, 6.5),
+      o('d5', 'desk', 6, 12.5), o('d6', 'desk', 11, 12.5), o('d7', 'desk', 16, 12.5), o('d8', 'desk', 21, 12.5),
+      // meeting room
+      o('mt', 'meetingTable', 33, 5.5), o('gl', 'glass', 33, 9.8), o('sc', 'screen', 33, 0.5), o('wb2', 'whiteboard', 39.5, 5.5, 3),
+      // walls decor
+      o('bd', 'board', 14, 0.5), o('lg', 'logo', 8, 0.5), o('dr', 'door', 22, 0.5), o('w1', 'window', 3, 0.5), o('w2', 'window', 18, 0.5), o('w3', 'window', 26, 0.5),
+      o('wb1', 'whiteboard', 39.5, 14.5, 3),
+      // restroom (dividers form the room, gap on the right is the doorway)
+      o('r1', 'divider', 4, 18.6), o('r2', 'divider', 8, 18.6), o('r3', 'divider', 11.2, 20.4, 1), o('r4', 'divider', 11.2, 26, 1), o('dw1', 'doorway', 11.2, 23.2, 1),
+      o('s1', 'stall', 3.5, 20.6), o('s2', 'stall', 6, 20.6), o('s3', 'stall', 8.5, 20.6),
+      o('k1', 'sink', 4, 26.5, 2), o('k2', 'sink', 6.5, 26.5, 2),
+      // pantry and water things
+      o('wc1', 'waterCooler', 30.5, 20), o('wc2', 'waterCooler', 32, 20), o('ft', 'fountain', 34, 23.5), o('aq', 'aquarium', 20, 19.6),
+      // lounge
+      o('sf', 'sofa', 20, 24.6),
+      // plants
+      o('p1', 'plant', 1, 1), o('p2', 'plant', 39, 1), o('p3', 'plant', 1, 27), o('p4', 'plant', 39, 27), o('p5', 'plant', 14.5, 24), o('p6', 'plant', 25.5, 24), o('p7', 'plant', 27, 17), o('p8', 'plant', 13, 17),
+    ];
+    return { v: 1, w: w, h: h, floor: g.map(function (r) { return r.join(''); }), objects: objs };
   }
 
   function validate(l) {

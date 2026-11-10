@@ -27,12 +27,13 @@ const ok = (n) => console.log(`ok - ${n}`);
   // layout
   const d = L.defaultLayout(); assert.ok(L.validate(d).layout); ok('default layout is valid');
   assert.ok(L.validate({ ...d, floor: d.floor.slice(1) }).error); assert.ok(L.validate({ ...d, objects: [{ type: 'ufo', x: 1, z: 1 }] }).error); ok('bad layouts rejected');
-  let r = await api('GET', '/api/layout', null, amy); assert.equal(r.json.layout.w, 24); ok('players read the layout');
+  let r = await api('GET', '/api/layout', null, amy); assert.equal(r.json.layout.w, 40); ok('players read the layout');
   r = await api('PUT', '/api/admin/layout', { layout: d }, amy); assert.equal(r.status, 403); ok('players cannot edit the layout');
+  assert.ok(L.defaultLayout().w >= 40); ok('default map is large');
   const small = { v: 1, w: 12, h: 8, floor: Array(8).fill('wwwwwwwwwwww'), objects: [{ id: 'a', type: 'desk', x: 3, z: 3, rot: 1 }] };
   r = await api('PUT', '/api/admin/layout', { layout: small }, boss); assert.equal(r.status, 200);
   r = await api('GET', '/api/layout', null, amy); assert.equal(r.json.layout.w, 12); ok('admin changes map size and floor');
-  r = await api('POST', '/api/admin/layout/reset', {}, boss); assert.equal(r.json.layout.w, 24);
+  r = await api('POST', '/api/admin/layout/reset', {}, boss); assert.equal(r.json.layout.w, 40);
 
   // announcements / logo / bots
   r = await api('PUT', '/api/admin/announcements', { items: [{ title: 'Hello', body: 'World', color: 'pink' }, { title: '', body: 'x' }] }, boss);
@@ -97,6 +98,16 @@ const ok = (n) => console.log(`ok - ${n}`);
   await wait(() => B.msgs.find((m) => m.t === 'look' && m.costume === 'cat')); ok('outfit change syncs');
   await api('PUT', '/api/admin/announcements', { items: [{ title: 'x' }] }, boss);
   await wait(() => B.msgs.find((m) => m.t === 'reload')); ok('admin changes tell clients to refresh');
+  const wbId = (await api('GET', '/api/layout', null, amy)).json.layout.objects.find((o) => o.type === 'whiteboard').id;
+  A.ws.send(JSON.stringify({ t: 'wb', id: wbId, s: { c: '#ff0000', w: 4, p: [[10, 10], [500, 600], [1000, 1000]] } }));
+  const ws1 = await wait(() => B.msgs.find((m) => m.t === 'wb')); assert.equal(ws1.s.p.length, 3);
+  A.ws.send(JSON.stringify({ t: 'wb', id: wbId, s: { c: 'red', w: 4, p: [[1, 1]] } }));
+  A.ws.send(JSON.stringify({ t: 'wb', id: wbId, s: { c: '#00ff00', w: 4, p: [[5000, 1]] } }));
+  A.ws.send(JSON.stringify({ t: 'wb', id: 'nope', s: { c: '#00ff00', w: 4, p: [[5, 1]] } }));
+  await new Promise((r) => setTimeout(r, 300));
+  r = await api('GET', '/api/whiteboards', null, bob); assert.equal(r.json.boards[wbId].length, 1); ok('whiteboard strokes sync, persist and are validated');
+  A.ws.send(JSON.stringify({ t: 'wbclear', id: wbId })); await wait(() => B.msgs.find((m) => m.t === 'wbclear'));
+  r = await api('GET', '/api/whiteboards', null, bob); assert.equal(r.json.boards[wbId].length, 0); ok('whiteboard clear');
   A.ws.close(); await wait(() => B.msgs.find((m) => m.t === 'leave' && m.id === 'amy')); ok('leave broadcast');
   const A2 = await open(bob); await wait(() => B.ws.readyState === 3); ok('second login replaces the first');
   A2.ws.close(); app.locals.world.close(); server.close(); console.log('all passed');

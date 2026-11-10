@@ -50,17 +50,19 @@ code{color:var(--gold);font-size:18px;user-select:all}
 
 <section id="tab-layout">
   <h2>Office layout</h2>
-  <p class="sub">Paint the floor to change the map shape (empty cells become outside space and get walls automatically). Place desks, plants, doors and more, then save. Everyone online refreshes into the new office.</p>
+  <p class="sub">Make the floor with Brush, Rectangle (drag a box) or Fill area, and pick a floor style on the right. Choose Empty to cut space out. Edges next to empty space get walls automatically. Place desks, plants, doors and more, then save. Everyone online refreshes into the new office.</p>
   <div class="editor">
     <div>
       <div class="row" id="tools"></div>
       <div class="canvasWrap"><canvas id="cv"></canvas></div>
     </div>
     <div class="side">
+      <div><b>Zoom</b><div class="row"><input id="zoom" type="range" min="14" max="48" value="32" aria-label="Zoom" style="padding:0"></div></div>
       <div><b>Map size</b><div class="row"><input id="mw" type="number" min="8" max="40" style="width:72px" aria-label="Width"> x <input id="mh" type="number" min="6" max="30" style="width:72px" aria-label="Height"><button id="resize" type="button">Apply</button></div></div>
       <div><b>Floor style</b><div class="palette" id="floors"></div></div>
       <div><b>Objects</b><div class="palette" id="types"></div></div>
       <div id="selInfo" class="card" hidden><b id="selName"></b><div class="row"><button id="rot" type="button">Rotate (R)</button><button id="del" class="warn" type="button">Delete</button></div><small>Wall items sit against the wall behind the arrow. Rotate until the arrow points at a wall.</small></div>
+      <div class="row"><button id="fillAll" type="button">Fill whole map</button></div>
       <div class="row"><button class="go" id="saveLayout" type="button">Save layout</button><button id="resetLayout" class="warn" type="button">Reset to default</button></div>
     </div>
   </div>
@@ -101,39 +103,46 @@ function boot(){
 }
 
 /* ---------- layout editor ---------- */
-var COLORS={c:'#9d95e6',w:'#b9834a',g:'#8a90a8',r:'#ff7eb6',u:'#5d4fb3'},OBJ_COLOR={desk:'#f2e3c4',plant:'#3ddc84',sofa:'#ff9ccb',meetingTable:'#e9d3a3',glass:'#bfe9ff',board:'#ffd166',logo:'#3ee6c4',door:'#ff7eb6',window:'#88d4ff',screen:'#7aa2ff'};
+var COLORS={c:'#9d95e6',w:'#b9834a',g:'#8a90a8',r:'#ff7eb6',u:'#5d4fb3',' ':'#0b0a1c'},OBJ_COLOR={desk:'#f2e3c4',plant:'#3ddc84',sofa:'#ff9ccb',meetingTable:'#e9d3a3',glass:'#bfe9ff',board:'#ffd166',logo:'#3ee6c4',door:'#ff7eb6',window:'#88d4ff',screen:'#7aa2ff',divider:'#b9b0f0',stall:'#cfc8f5',toilet:'#ffffff',sink:'#e9e7f7',waterCooler:'#8fd3ff',fountain:'#5ec8ff',aquarium:'#6cb8ff',whiteboard:'#fafafa',doorway:'#ffb347'};
 var CELL=32;
 function layoutEditor(){
-  var lay,cv=$('cv'),g=cv.getContext('2d'),tool='paint',floor='c',addType='desk',sel=null,drag=null,painting=false,last=null;
+  var lay,cv=$('cv'),g=cv.getContext('2d'),tool='paint',floor='c',addType='desk',sel=null,drag=null,painting=false,last=null,rect=null;
   function load(l){lay=JSON.parse(JSON.stringify(l));lay.floor=lay.floor.slice();sel=null;$('mw').value=lay.w;$('mh').value=lay.h;fit();draw();info()}
   api('GET','layout').then(function(j){load(j.layout)}).catch(fail);
   function fit(){cv.width=lay.w*CELL;cv.height=lay.h*CELL}
-  var toolDefs=[['paint','Paint floor'],['erase','Erase floor'],['select','Select / move'],['add','Place object']];
+  var toolDefs=[['paint','Brush'],['rect','Rectangle'],['fill','Fill area'],['select','Select / move'],['add','Place object']];
   toolDefs.forEach(function(t){var b=el('button',{type:'button',textContent:t[1]});b.id='tool-'+t[0];b.onclick=function(){tool=t[0];tools()};$('tools').appendChild(b)});
   function tools(){toolDefs.forEach(function(t){$('tool-'+t[0]).className=t[0]===tool?'on':''});cv.style.cursor=tool==='select'?'default':'crosshair'}tools();
-  Object.keys(L.FLOORS).forEach(function(k){var b=el('button',{type:'button'},[el('span',{className:'sw'}),L.FLOORS[k]]);b.firstChild.style.background=COLORS[k];b.id='fl-'+k;b.onclick=function(){floor=k;tool='paint';tools();pal()};$('floors').appendChild(b)});
+  var FL=Object.keys(L.FLOORS).concat([' ']),FLN=function(k){return k===' '?'Empty (outside)':L.FLOORS[k]},FID=function(k){return 'fl-'+(k===' '?'empty':k)};
+  FL.forEach(function(k){var b=el('button',{type:'button'},[el('span',{className:'sw'}),FLN(k)]);b.firstChild.style.background=COLORS[k];b.id=FID(k);b.onclick=function(){floor=k;if(tool!=='rect'&&tool!=='fill')tool='paint';tools();pal()};$('floors').appendChild(b)});
   Object.keys(L.TYPES).forEach(function(k){var b=el('button',{type:'button'},[el('span',{className:'sw'}),L.TYPES[k].label]);b.firstChild.style.background=OBJ_COLOR[k];b.id='ty-'+k;b.onclick=function(){addType=k;tool='add';tools();pal()};$('types').appendChild(b)});
-  function pal(){Object.keys(L.FLOORS).forEach(function(k){$('fl-'+k).className=tool==='paint'&&k===floor?'on':''});Object.keys(L.TYPES).forEach(function(k){$('ty-'+k).className=tool==='add'&&k===addType?'on':''})}pal();
+  function pal(){FL.forEach(function(k){$('fl-'.slice(0,3)+(k===' '?'empty':k)).className=(tool==='paint'||tool==='rect'||tool==='fill')&&k===floor?'on':''});Object.keys(L.TYPES).forEach(function(k){$('ty-'+k).className=tool==='add'&&k===addType?'on':''})}pal();
   var origTools=tools;tools=function(){origTools();pal()};
 
   function cellOf(e){var r=cv.getBoundingClientRect(),sx=cv.width/r.width,sy=cv.height/r.height;return{x:(e.clientX-r.left)*sx/CELL,z:(e.clientY-r.top)*sy/CELL}}
   function setCell(i,j,ch){if(i<0||j<0||i>=lay.w||j>=lay.h)return;var row=lay.floor[j];if(row[i]===ch)return;lay.floor[j]=row.slice(0,i)+ch+row.slice(i+1)}
   function hit(p){for(var i=lay.objects.length-1;i>=0;i--){var o=lay.objects[i],t=L.TYPES[o.type],hw=t.wall?1.2:t.hw,hd=t.wall?.5:t.hd,odd=o.rot%2===1;if(odd){var s=hw;hw=hd;hd=s}if(Math.abs(p.x-o.x)<=Math.max(hw,.4)&&Math.abs(p.z-o.z)<=Math.max(hd,.4))return o}return null}
-  function line(a,b){var ch=tool==='erase'?' ':floor,n=Math.max(Math.abs(b[0]-a[0]),Math.abs(b[1]-a[1]))||1;for(var k=0;k<=n;k++)setCell(Math.round(a[0]+(b[0]-a[0])*k/n),Math.round(a[1]+(b[1]-a[1])*k/n),ch)}
+  function flood(i0,j0,ch){if(i0<0||j0<0||i0>=lay.w||j0>=lay.h)return;var from=lay.floor[j0][i0];if(from===ch)return;var st=[[i0,j0]];while(st.length){var c=st.pop(),i=c[0],j=c[1];if(i<0||j<0||i>=lay.w||j>=lay.h||lay.floor[j][i]!==from)continue;setCell(i,j,ch);st.push([i+1,j],[i-1,j],[i,j+1],[i,j-1])}}
+  function line(a,b){var ch=floor,n=Math.max(Math.abs(b[0]-a[0]),Math.abs(b[1]-a[1]))||1;for(var k=0;k<=n;k++)setCell(Math.round(a[0]+(b[0]-a[0])*k/n),Math.round(a[1]+(b[1]-a[1])*k/n),ch)}
   var snap=function(v){return Math.round(v*2)/2};
   cv.addEventListener('pointerdown',function(e){
     var p=cellOf(e);cv.setPointerCapture(e.pointerId);
-    if(tool==='paint'||tool==='erase'){painting=true;last=[Math.floor(p.x),Math.floor(p.z)];setCell(last[0],last[1],tool==='erase'?' ':floor);draw()}
+    if(tool==='paint'){painting=true;last=[Math.floor(p.x),Math.floor(p.z)];setCell(last[0],last[1],floor);draw()}
+    else if(tool==='rect'){rect={a:[Math.floor(p.x),Math.floor(p.z)],b:[Math.floor(p.x),Math.floor(p.z)]};draw()}
+    else if(tool==='fill'){flood(Math.floor(p.x),Math.floor(p.z),floor);draw()}
     else if(tool==='select'){sel=hit(p);if(sel)drag={dx:sel.x-p.x,dz:sel.z-p.z};info();draw()}
     else if(tool==='add'){var o={id:'o'+Date.now().toString(36),type:addType,x:Math.max(0,Math.min(lay.w,snap(p.x))),z:Math.max(0,Math.min(lay.h,snap(p.z))),rot:0};lay.objects.push(o);sel=o;tool='select';tools();info();draw()}
   });
   cv.addEventListener('pointermove',function(e){var p=cellOf(e);
     if(painting){line(last,[Math.floor(p.x),Math.floor(p.z)]);last=[Math.floor(p.x),Math.floor(p.z)];draw()}
+    else if(rect){rect.b=[Math.max(0,Math.min(lay.w-1,Math.floor(p.x))),Math.max(0,Math.min(lay.h-1,Math.floor(p.z)))];draw()}
     else if(drag&&sel){sel.x=Math.max(0,Math.min(lay.w,snap(p.x+drag.dx)));sel.z=Math.max(0,Math.min(lay.h,snap(p.z+drag.dz)));draw()}});
-  ['pointerup','pointercancel'].forEach(function(ev){cv.addEventListener(ev,function(){painting=false;drag=null;last=null})});
+  ['pointerup','pointercancel'].forEach(function(ev){cv.addEventListener(ev,function(){if(rect){var x0=Math.min(rect.a[0],rect.b[0]),x1=Math.max(rect.a[0],rect.b[0]),y0=Math.min(rect.a[1],rect.b[1]),y1=Math.max(rect.a[1],rect.b[1]);for(var j=y0;j<=y1;j++)for(var i=x0;i<=x1;i++)setCell(i,j,floor);rect=null;draw()}painting=false;drag=null;last=null})});
   function info(){$('selInfo').hidden=!sel;if(sel)$('selName').textContent=L.TYPES[sel.type].label}
   function rotate(){if(sel){sel.rot=(sel.rot+1)%4;draw()}}
   function del(){if(sel){lay.objects=lay.objects.filter(function(o){return o!==sel});sel=null;info();draw()}}
+  $('zoom').oninput=function(){CELL=parseInt($('zoom').value,10);fit();draw()};
+  $('fillAll').onclick=function(){for(var j=0;j<lay.h;j++)lay.floor[j]=new Array(lay.w+1).join(floor);draw()};
   $('rot').onclick=rotate;$('del').onclick=del;
   addEventListener('keydown',function(e){if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;if($('tab-layout').hidden)return;if(e.key==='r'||e.key==='R')rotate();if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();del()}});
 
@@ -160,6 +169,7 @@ function layoutEditor(){
       g.restore();
       g.fillStyle='#0b0a1c';g.font='700 11px sans-serif';g.textAlign='center';g.fillText(o.type==='meetingTable'?'table':o.type,o.x*CELL,o.z*CELL+4);
     });
+    if(rect){var rx=Math.min(rect.a[0],rect.b[0]),rz=Math.min(rect.a[1],rect.b[1]),rw=Math.abs(rect.a[0]-rect.b[0])+1,rh=Math.abs(rect.a[1]-rect.b[1])+1;g.fillStyle=COLORS[floor];g.globalAlpha=.6;g.fillRect(rx*CELL,rz*CELL,rw*CELL,rh*CELL);g.globalAlpha=1;g.strokeStyle='#fff';g.lineWidth=3;g.setLineDash([6,4]);g.strokeRect(rx*CELL,rz*CELL,rw*CELL,rh*CELL);g.setLineDash([]);g.fillStyle='#fff';g.font='700 13px sans-serif';g.textAlign='left';g.fillText(rw+' x '+rh,rx*CELL+6,rz*CELL+18)}
   }
 }
 

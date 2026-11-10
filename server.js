@@ -239,6 +239,7 @@ function createApp(store = createStore(), env = process.env) {
     res.json({ users });
   }));
 
+  app.get('/api/whiteboards', wrap(requireUser), wrap(async (req, res) => { await world.ready(); res.json({ boards: await world.whiteboards() }); }));
   app.get('/api/layout', wrap(requireUser), wrap(async (req, res) => res.json({ layout: await getLayout() })));
   app.put('/api/admin/layout', wrap(requireUser), requireAdmin, wrap(async (req, res) => {
     const v = L.validate(req.body && req.body.layout);

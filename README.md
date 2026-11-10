@@ -27,6 +27,9 @@ W A S D move, Q and E turn the camera, F sits at a desk or reads the board, M op
 - `/` login and signup (random first password), `/office` the 3D office, `/admin` the admin panel.
 - Realtime (WebSocket on the same Render service): players, chat, and server-driven bots.
 - Mail: coins and new outfits (robot suit, gold crown, extra colours) only arrive as mail attachments. Players claim them once; admins send from the Mail tab, optionally signed as a bot. Starter outfits are free.
+- Whiteboards: walk up and press F to draw. Everyone sees strokes live and they are saved to Upstash (`wb:*`).
+- Objects: desks, sofa, meeting table, glass wall, room dividers, walk-through doors, toilet stalls, sinks, water coolers, a fountain, an aquarium, whiteboards, wall decor.
+- Default map is 40 x 28 (up to 60 x 40). The admin can reset to it from the layout editor.
 - Touch devices get an on-screen joystick.
 - Admin panel: edit the floor shape and styles, place objects, upload the logo, write announcements,
   add and name bots, reset passwords.
