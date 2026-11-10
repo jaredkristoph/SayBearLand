@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: cyberland
+    name: saybearland
     runtime: node
     plan: free
     buildCommand: npm install
@@ -16,4 +16,4 @@ services:
       - key: ADMIN_USERNAMES
         value: admin
       - key: KEY_PREFIX
-        value: "cyberland:"
+        value: "saybearland:"

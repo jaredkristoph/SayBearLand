@@ -1,4 +1,4 @@
-# Cyberland (phase 1)
+# SayBearLand (phase 1)
 
 Accounts, roles and login, a realtime 3D jelly office, and an admin panel.
 
@@ -10,7 +10,7 @@ Accounts, roles and login, a realtime 3D jelly office, and an admin panel.
 ## Use Upstash
 Copy `.env.example` to `.env` (or set the same variables in Render) and fill in
 `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` and `SESSION_SECRET`.
-All keys start with `KEY_PREFIX` (default `cyberland:`), so an existing database is safe to share.
+All keys start with `KEY_PREFIX` (default `saybearland:`), so an existing database is safe to share.
 Never commit the token. Reset the token in Upstash if it has been pasted anywhere.
 
 ## Deploy on Render

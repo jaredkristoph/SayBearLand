@@ -90,7 +90,7 @@ function createApp(store = createStore(), env = process.env) {
     const ok = await store.set(userKey(username), user, { nx: true });
     if (!ok) return res.status(409).json({ error: 'That username is taken.' });
     await store.sadd('users', username);
-    await deliver(username, { from: 'Admin', subject: 'Welcome to Cyberland', body: 'Here is a little something to start with. Coins only arrive by mail, so keep an eye on your inbox.', attachment: { type: 'coins', amount: 100 } });
+    await deliver(username, { from: 'Admin', subject: 'Welcome to SayBearLand', body: 'Here is a little something to start with. Coins only arrive by mail, so keep an eye on your inbox.', attachment: { type: 'coins', amount: 100 } });
     res.status(201).json({ username, temporaryPassword: password, note: 'Shown once. You must change it at first login.' });
   }));
 
@@ -306,6 +306,6 @@ if (require.main === module) {
   const app = createApp(store);
   const server = http.createServer(app);
   app.locals.world.handleUpgrade(server);
-  server.listen(port, () => console.log(`Cyberland on :${port} (storage: ${store.kind})`));
+  server.listen(port, () => console.log(`SayBearLand on :${port} (storage: ${store.kind})`));
 }
 module.exports = { createApp };
