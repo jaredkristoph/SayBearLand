@@ -335,8 +335,8 @@ lw.objects.forEach(function(o){
   }else if(type==='blackjack'){
     g.add(rbox(4.9,.18,2.6,0x4a2f18,0,.84,0));g.add(rbox(4.6,.06,2.3,0x1f7a4d,0,.98,0));
     [[-2,-.8],[2,-.8],[-2,.8],[2,.8]].forEach(function(q){g.add(rbox(.3,.84,.3,0x3a2412,q[0],0,q[1]))});
-    var bl=document.createElement('canvas');bl.width=512;bl.height=128;var bx=bl.getContext('2d');bx.textAlign='center';bx.textBaseline='middle';bx.fillStyle='rgba(255,214,102,.75)';bx.font='800 54px sans-serif';bx.fillText('BLACKJACK',256,50);bx.font='700 26px sans-serif';bx.fillText('PAYS 3 TO 2  ·  MIN BET 1',256,100);
-    var bp=new T.Mesh(new T.PlaneGeometry(2.6,.65),new T.MeshBasicMaterial({map:new T.CanvasTexture(bl),transparent:true,depthWrite:false}));bp.rotation.x=-Math.PI/2;bp.position.set(0,1.045,-.22);g.add(bp);
+    var bl=document.createElement('canvas');bl.width=512;bl.height=128;var bltex=new T.CanvasTexture(bl);
+    var bp=new T.Mesh(new T.PlaneGeometry(2.4,.6),new T.MeshBasicMaterial({map:bltex,transparent:true,depthWrite:false}));bp.rotation.x=-Math.PI/2;bp.position.set(0,1.045,-.22);g.add(bp);
     var bjs=L.bjSeats(o);
     bjs.forEach(function(sp,i){
       var lx=[-1.5,-.5,.5,1.5][i];g.add(mesh(new T.CylinderGeometry(.34,.3,.42,20),M(0x2f2a66,.5),lx,.21,1.75));g.add(mesh(new T.CylinderGeometry(.36,.36,.1,20),M([0xff7eb6,0x7aa2ff,0x3ee6c4,0xffb347][i],.5),lx,.46,1.75));
@@ -346,8 +346,7 @@ lw.objects.forEach(function(o){
     var dtag=tag('Ace','Dealer',true);dtag.position.set(0,3.35,0);dj.add(dtag);
     var cards=new T.Group();g.add(cards);
     var ring=new T.Mesh(new T.RingGeometry(.3,.4,28),new T.MeshBasicMaterial({color:0xffd166,transparent:true,opacity:.9,side:T.DoubleSide,depthWrite:false}));ring.rotation.x=-Math.PI/2;ring.visible=false;g.add(ring);
-    var ban=new T.Sprite(new T.SpriteMaterial({depthTest:false,transparent:true}));ban.scale.set(3.4,.6,1);ban.position.set(0,2.75,0);ban.renderOrder=9;g.add(ban);
-    bjTables[o.id]={g:g,o:o,dealer:dj,cards:cards,ring:ring,banner:ban,bannerText:'',seen:{},dealT:0,deadline:0};
+    bjTables[o.id]={g:g,o:o,dealer:dj,cards:cards,ring:ring,feltC:bl,feltTex:bltex,bannerText:'',seen:{},dealT:0,deadline:0};
   }else if(type==='cubicle'){
     g.add(rbox(2,2.4,.14,0xd9d3ff,0,0,0));g.add(rbox(2.06,.1,.2,0xa59cf0,0,2.4,0));[-.9,.9].forEach(function(x){g.add(rbox(.1,.12,.4,0x8f86d8,x,0,0))});occl.push(g);
   }else if(type==='stall'){
@@ -593,10 +592,12 @@ function bjBannerText(tb,s){
 }
 function setBanner(tb,text){
   if(tb.bannerText===text)return;tb.bannerText=text;
-  var cv=document.createElement('canvas');cv.width=640;cv.height=112;var g=cv.getContext('2d');g.font='800 44px sans-serif';var w=Math.min(630,g.measureText(text).width+60);
-  g.fillStyle='rgba(15,13,36,.9)';g.beginPath();if(g.roundRect)g.roundRect(320-w/2,10,w,92,46);else g.rect(320-w/2,10,w,92);g.fill();g.strokeStyle='#ffd166';g.lineWidth=4;g.stroke();
-  g.fillStyle='#ffd166';g.textAlign='center';g.textBaseline='middle';g.fillText(text,320,57);
-  var old=tb.banner.material.map;tb.banner.material.map=new T.CanvasTexture(cv);tb.banner.material.needsUpdate=true;if(old)old.dispose();
+  var g=tb.feltC.getContext('2d'),W=512,H=128;g.clearRect(0,0,W,H);g.textAlign='center';g.textBaseline='middle';
+  var i=text.indexOf('  \u00b7  '),main=i<0?text:text.slice(0,i),sub=i<0?'':text.slice(i+5);
+  if(text.indexOf('BLACKJACK')===0){g.fillStyle='rgba(255,214,102,.8)';g.font='800 56px sans-serif';g.fillText('BLACKJACK',256,48);g.font='700 26px sans-serif';g.fillText('PAYS 3 TO 2  \u00b7  MIN BET 1',256,100)}
+  else if(sub){g.fillStyle='rgba(255,214,102,.9)';g.font='800 40px sans-serif';g.fillText(main,256,36);g.fillStyle='#ffffff';g.font='800 62px sans-serif';g.fillText(sub,256,92)}
+  else{g.fillStyle='rgba(255,214,102,.9)';g.font='800 58px sans-serif';g.fillText(main,256,64)}
+  tb.feltTex.needsUpdate=true;
 }
 function bjApply(s){
   var tb=bjTables[s.id];if(!tb)return;
