@@ -29,6 +29,7 @@ canvas{display:block;width:100%;height:100%}
 #wearBtn{left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:3}
 #wear{left:50%;transform:translateX(-50%);bottom:max(68px,calc(env(safe-area-inset-bottom,0px) + 56px));z-index:3;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 32px)}
 #bj{left:50%;transform:translateX(-50%);bottom:max(66px,calc(env(safe-area-inset-bottom,0px) + 54px));z-index:4;display:flex;flex-direction:column;align-items:center;gap:8px;background:rgba(27,23,62,.96);border:3px solid var(--line);border-radius:18px;padding:10px 14px;min-width:min(420px,calc(100vw - 24px));text-align:center}
+body.clean>*:not(#stage){display:none!important}
 #bj[hidden],#bj .row[hidden]{display:none}
 #bj b{font-size:15px;letter-spacing:.04em}#bj .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}#bj small{opacity:.8}
 #bj button.chip:disabled{opacity:.45;cursor:default}#bj button.go{background:#3ee6c4;color:#0f0d24;border-color:#1b9c85}#bj button.red{background:#ff6b81;color:#0f0d24;border-color:#c13f55}
@@ -80,7 +81,7 @@ button.chip:disabled{opacity:.45;cursor:not-allowed}
 <div id="stage"></div>
 <div class="hud" id="brand"><b>CYBERLAND</b><span id="online">connecting...</span></div>
 <div class="hud" id="wallet"><i id="coins">0 CC</i><button class="chip" id="mailBtn" type="button">Mail<span id="badge" hidden></span></button><a id="adminLink" href="/admin" hidden>Admin</a><button class="chip" id="out" type="button">Log out</button></div>
-<div class="hud" id="hint" hidden>Move: W A S D. Turn the camera: Q and E. Press F at a desk to sit, or at a board or whiteboard. V toggles first person. H swings a friendly hammer (you earn 0.1 CC for each workmate you whack). Sit at the blackjack table to play. Click the announcement board to read it. M for mail, Enter to chat.</div>
+<div class="hud" id="hint" hidden>Move: W A S D. Turn the camera: Q and E. Press F at a desk to sit, or at a board or whiteboard. V toggles first person. P hides every label and button for screenshots. H swings a friendly hammer (you earn 0.1 CC for each workmate you whack). Sit at the blackjack table to play. Click the announcement board to read it. M for mail, Enter to chat.</div>
 <div class="hud" id="chat"><h2>TEAM CHAT</h2><div id="log" aria-live="polite"></div><input id="msg" maxlength="200" placeholder="Press Enter to chat" aria-label="Chat message" autocomplete="off"></div>
 <button class="hud chip" id="wearBtn" type="button" aria-expanded="false" aria-controls="wear">Outfit</button>
 <div class="hud" id="wear" role="group" aria-label="Costume and colour" hidden></div>
@@ -201,7 +202,7 @@ function logoTexture(){
 var boardTex=boardTexture(),logoTex=logoTexture();
 
 /* ---------- objects ---------- */
-var fp=false,pitch=0,fpSeatedFor=null,bjTables={},bjState={},bjSeat=null,bjJoinAt=0,bjHudAt=0,popups=[],occl=[],screens=[],wallObjs=[],seats=[],boards=[],deskN=0,anims=[];
+var clean=false,hiddenSprites=[],fp=false,pitch=0,fpSeatedFor=null,bjTables={},bjState={},bjSeat=null,bjJoinAt=0,bjHudAt=0,popups=[],occl=[],screens=[],wallObjs=[],seats=[],boards=[],deskN=0,anims=[];
 function makeLeaf(w,h,col){
   var L2=new T.Group(),inset=shade(col,.86),metal=M(0xcfd2e6,.25);
   L2.add(rbox(w,h,.07,col,w/2,0,0));
@@ -535,8 +536,18 @@ function cardTex(c){
     g.textAlign='center';g.textBaseline='middle';g.font='64px sans-serif';g.fillText(SUITS[su],56,92)}
   var t=new T.CanvasTexture(cv);t.anisotropy=4;cardCache[c]=t;return t;
 }
-var cardGeo=new T.BoxGeometry(.37,.012,.52),cardSide=M(0xeeeaf8,.6);
-function makeCard(c){var top=new T.MeshStandardMaterial({map:cardTex(c),roughness:.55}),bot=new T.MeshStandardMaterial({map:cardTex(-1),roughness:.55});var m=new T.Mesh(cardGeo,[cardSide,cardSide,top,bot,cardSide,cardSide]);m.castShadow=true;return m}
+var cardSide=M(0xeeeaf8,.6),cardGeo=(function(){
+  var w=.37,h=.52,r=.034,x=-w/2,y=-h/2,sh=new T.Shape();
+  sh.moveTo(x+r,y);sh.lineTo(x+w-r,y);sh.quadraticCurveTo(x+w,y,x+w,y+r);sh.lineTo(x+w,y+h-r);sh.quadraticCurveTo(x+w,y+h,x+w-r,y+h);sh.lineTo(x+r,y+h);sh.quadraticCurveTo(x,y+h,x,y+h-r);sh.lineTo(x,y+r);sh.quadraticCurveTo(x,y,x+r,y);
+  function uv(g){var p=g.attributes.position,u=g.attributes.uv;for(var i=0;i<p.count;i++)u.setXY(i,(p.getX(i)+w/2)/w,(p.getY(i)+h/2)/h)}
+  var top=new T.ShapeGeometry(sh,8);uv(top);var bot=top.clone();top.rotateX(-Math.PI/2);bot.rotateX(Math.PI/2);
+  var body=new T.ExtrudeGeometry(sh,{depth:.012,bevelEnabled:false,curveSegments:8});body.rotateX(-Math.PI/2);body.translate(0,-.006,0);
+  return {top:top,bot:bot,body:body}})();
+function makeCard(c){var g=new T.Group();
+  var a=new T.Mesh(cardGeo.body,cardSide);a.castShadow=true;g.add(a);
+  var t=new T.Mesh(cardGeo.top,new T.MeshStandardMaterial({map:cardTex(c),roughness:.55}));t.position.y=.0065;g.add(t);
+  var d=new T.Mesh(cardGeo.bot,new T.MeshStandardMaterial({map:cardTex(-1),roughness:.55}));d.position.y=-.0065;g.add(d);
+  return g}
 function lblSprite(text,col){
   var cv=document.createElement('canvas');cv.width=320;cv.height=72;var g=cv.getContext('2d');g.font='800 38px sans-serif';var w=Math.min(310,g.measureText(text).width+36);
   g.fillStyle='rgba(15,13,36,.92)';g.beginPath();if(g.roundRect)g.roundRect(160-w/2,6,w,60,30);else g.rect(160-w/2,6,w,60);g.fill();g.fillStyle=col;g.textAlign='center';g.textBaseline='middle';g.fillText(text,160,38);
@@ -795,6 +806,7 @@ addEventListener('keydown',function(e){
   if(k==='escape'&&mailOpen){setMail(false);return}
   if(k==='h'&&!e.repeat&&!mailOpen){whack();return}
   if(k==='v'&&!e.repeat&&!mailOpen){setFp(!fp);return}
+  if(k==='p'&&!e.repeat){clean=!clean;document.body.classList.toggle('clean',clean);return}
   if(mailOpen)return;
   if(k==='enter'){e.preventDefault();msg.focus();return}
   keys[k]=1;
@@ -892,7 +904,7 @@ addEventListener('resize',resize);resize();
 /* ---------- main loop ---------- */
 var clock=new T.Clock(),camPos=new T.Vector3(0,12.5,16),look=new T.Vector3(0,1,0),camSet=false;
 var frameErrShown=false;
-function frame(){requestAnimationFrame(frame);try{frame0()}catch(e){console.error('frame error',e);if(!frameErrShown){frameErrShown=true;try{$('online').textContent='Error: '+(e&&e.message||e)}catch(x){}}}finally{renderer.render(scene,cam)}}
+function frame(){requestAnimationFrame(frame);try{frame0()}catch(e){console.error('frame error',e);if(!frameErrShown){frameErrShown=true;try{$('online').textContent='Error: '+(e&&e.message||e)}catch(x){}}}finally{if(clean){hiddenSprites.length=0;scene.traverse(function(o){if(o.isSprite&&o.visible){o.visible=false;hiddenSprites.push(o)}})}renderer.render(scene,cam);for(var hs=0;hs<hiddenSprites.length;hs++)hiddenSprites[hs].visible=true}}
 function frame0(){
   var dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;bjFrame(dt,t);if(me)me.g.visible=!fp;
   if(me&&!camSet){camPos.set(me.g.position.x,12.5,me.g.position.z+16);look.set(me.g.position.x,1,me.g.position.z);camSet=true}
