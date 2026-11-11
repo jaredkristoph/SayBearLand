@@ -472,7 +472,6 @@ function jelly(color,costume){
       drive(B.Head,0,head.rotation.z);
     };
   };
-  if(window.BEAST)root.userData.useModel(window.BEAST);else(window.BEAST_Q=window.BEAST_Q||[]).push(root);
   var shadow=new T.Mesh(new T.CircleGeometry(.7,24),new T.MeshBasicMaterial({color:0,transparent:true,opacity:.28}));shadow.rotation.x=-Math.PI/2;shadow.position.y=.02;root.add(shadow);
   var cost=new T.Group();head.add(cost);
   Object.assign(root.userData,{head:head,arms:arms,legs:legs,cost:cost,hammer:hm,stars:stars});
@@ -501,6 +500,7 @@ function jelly(color,costume){
   };
   root.userData.setColor=function(c){color=c;mat.color.set(c);bmat.color.set(c);root.userData.setCostume(root.userData.costume)};
   root.userData.setCostume(costume);
+  if(window.BEAST)root.userData.useModel(window.BEAST);else(window.BEAST_Q=window.BEAST_Q||[]).push(root);
   return root;
 }
 

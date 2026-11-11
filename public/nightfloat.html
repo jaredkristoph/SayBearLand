@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Night Float</title>
+<meta name="theme-color" content="#03060d">
+<style>
+:root{--bg:#03060d;--ink:#e8ecff;--dim:#9aa3c7;--line:#2a3358;--card:rgba(10,14,30,.9);--glow:#ffd27a;--ok:#7ee0a0;--bad:#ff8a9a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;-webkit-tap-highlight-color:transparent}
+canvas#cv{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:manipulation}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--glow);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#top{position:fixed;left:0;right:0;top:0;display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-area-inset-top)) 16px 8px;pointer-events:none;font-size:14px}
+#top>*{pointer-events:auto}
+#top a{color:var(--dim);text-decoration:none;white-space:nowrap}
+#top a:hover{color:var(--ink)}
+#lakeinfo{flex:1;min-width:0;text-align:center;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lakeinfo b{color:var(--ink);font-weight:600}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:1px 9px;margin-left:6px;font-size:12px;color:var(--ink);background:rgba(20,26,52,.6)}
+#stat{color:var(--dim);white-space:nowrap;font-variant-numeric:tabular-nums}
+#stat b{color:var(--ink)}
+.tbtn{background:rgba(20,26,52,.7);border:1px solid var(--line);border-radius:10px;padding:5px 10px;font-size:13px}
+.tbtn:hover{border-color:#4a5690}
+#timer{position:fixed;left:0;right:0;top:0;height:3px;background:transparent;pointer-events:none}
+#timer i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#5b6bd6,#ffd27a);transform-origin:left;opacity:.8}
+#ctl{position:fixed;left:0;right:0;bottom:0;padding:10px 12px calc(12px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:10px}
+#ctl[hidden]{display:none}
+#strike{width:min(520px,100%);padding:16px 20px;font-size:20px;font-weight:700;letter-spacing:.04em;border-radius:16px;border:2px solid var(--glow);background:rgba(255,210,122,.12);color:var(--glow);touch-action:manipulation}
+#strike:active{background:rgba(255,210,122,.3)}
+#strike kbd{font:inherit;font-size:12px;font-weight:500;color:var(--dim);margin-left:8px;border:1px solid var(--line);border-radius:6px;padding:0 6px}
+#calls{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;width:min(520px,100%)}
+#calls button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 6px;border-radius:12px;border:2px solid var(--line);background:rgba(10,14,30,.85);font-size:12px;line-height:1.15;touch-action:manipulation;position:relative}
+#calls button svg{width:34px;height:24px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
+#calls button[aria-pressed=true]{border-color:#fff;background:rgba(120,140,255,.28);box-shadow:0 0 0 1px #fff inset}
+#calls button[aria-pressed=true]::after{content:"\2713";position:absolute;top:2px;right:5px;font-size:11px}
+#calls kbd{font:inherit;font-size:10px;color:var(--dim)}
+#callnote{font-size:13px;color:var(--dim);min-height:1.2em}
+.panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(460px,calc(100% - 28px));max-height:calc(100% - 90px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 22px 20px;box-shadow:0 20px 80px rgba(0,0,0,.6);backdrop-filter:blur(6px)}
+.panel[hidden]{display:none}
+.panel h1{margin:0 0 4px;font-size:30px;letter-spacing:.02em}
+.panel h2{margin:0 0 6px;font-size:22px}
+.panel p{margin:8px 0;color:var(--dim)}
+.panel p b,.panel li b{color:var(--ink)}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.btn{flex:1 1 140px;padding:12px 16px;border-radius:12px;border:2px solid var(--line);background:rgba(25,32,64,.8);font-weight:600}
+.btn:hover{border-color:#5967b8}
+.btn.pri{border-color:var(--glow);background:rgba(255,210,122,.14);color:var(--glow)}
+.btn[disabled]{opacity:.5;cursor:default}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0}
+td,th{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:500}
+.big{font-size:44px;font-weight:700;color:var(--glow);font-variant-numeric:tabular-nums;line-height:1.1}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.entry{border:1px solid var(--line);border-radius:12px;padding:8px;font-size:13px;background:rgba(15,20,44,.7)}
+.entry canvas{width:100%;height:70px;display:block;border-radius:8px;background:#060a18}
+.entry b{display:block;margin-top:4px}
+.entry.lock{color:var(--dim)}
+.list{margin:6px 0;padding-left:0;list-style:none}
+.list li{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line);font-size:14px;align-items:baseline}
+.list .em{font-size:18px;width:26px;flex:none}
+.list .pts{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--ink)}
+.new{display:inline-block;border:1px solid var(--glow);color:var(--glow);border-radius:999px;padding:0 9px;font-size:12px;margin-left:6px}
+#rcv{width:100%;height:150px;display:block;border-radius:12px;background:radial-gradient(ellipse at 50% 60%,#101a38,#050810)}
+#toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1b2347;border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none}
+#toast.on{opacity:1}
+@media (max-width:520px){#top{font-size:13px;gap:8px;padding-left:10px;padding-right:10px}.chip{margin-left:0;display:block;width:max-content;margin:2px auto 0}#lakeinfo{white-space:normal}.panel{padding:18px 16px}}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="cv" aria-label="Dark water with a glowing float"></canvas>
+<div id="timer" aria-hidden="true"><i id="timerFill"></i></div>
+<header id="top">
+  <a id="back" href="/">&larr; Cyberland</a>
+  <div id="lakeinfo"></div>
+  <div id="stat"></div>
+  <button class="tbtn" id="mute" type="button" aria-pressed="false">Sound on</button>
+</header>
+<section id="ctl" hidden>
+  <div id="callnote" aria-hidden="true"></div>
+  <button id="strike" type="button">STRIKE <kbd>Space</kbd></button>
+  <div id="calls" role="group" aria-label="Your call: what is on the line?"></div>
+</section>
+<div id="panel" class="panel" role="dialog" aria-live="polite"></div>
+<div id="toast" role="status"></div>
+<div id="live" class="sr" aria-live="polite"></div>
+<script src="/nightfloat-core.js"></script>
+<script>
+(function(){
+'use strict';
+var NF=window.NF,$=function(i){return document.getElementById(i)};
+var cv=$('cv'),g=cv.getContext('2d'),W=0,H=0,DPR=1,U=100,CX=0,WY=0;
+var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+var CALLS=[{id:'small',label:'Small'},{id:'medium',label:'Medium'},{id:'large',label:'Large'},{id:'monster',label:'Monster'},{id:'notfish',label:'Not a fish'}];
+var COND_TEXT={calm:'Still water. What moves, means something.',wind:'The float moves on its own. Not every tap is a creature.',current:'The float drifts steadily. Judge drift against the flow.',rain:'The surface is noisy. Look for the stronger motions.'};
+var EMO={G:'🟩',Y:'🟨',J:'🟫',N:'🌙',X:'⬛'};
+var GLABEL={G:'Landed, call right',Y:'Landed',J:'Junk',N:'Not a fish, read right',X:'Nothing landed'};
+
+/* ---------- storage (every access guarded) ---------- */
+function lsGet(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+
+/* ---------- state ---------- */
+var S={state:'menu',daily:false,seed:'',lake:null,idx:0,results:[],total:0,call:null,t:0,cast:null,rip:[],prevDip:0,ripCd:0,strikeAnim:0,flash:0,flashes:[],events:[],evI:0,parts:[],moonPh:0,rainSrc:null,vibT:0,paused:false};
+var muted=!!lsGet('nf.muted',false);
+
+/* ---------- audio ---------- */
+var AC=null,master=null,nbuf=null;
+function ac(){
+  if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=muted?0:.8;master.connect(AC.destination);
+    nbuf=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate);var d=nbuf.getChannelData(0);for(var i=0;i<d.length;i++)d[i]=Math.random()*2-1}catch(e){AC=null}}
+  if(AC&&AC.state==='suspended')AC.resume();return AC}
+function out(pan){var o=master;if(AC.createStereoPanner){var p=AC.createStereoPanner();p.pan.value=Math.max(-1,Math.min(1,pan||0));p.connect(master);o=p}return o}
+function nz(type,f,q,dur,vol,pan,f1,delay){
+  if(!ac())return;var t=AC.currentTime+(delay||0),s=AC.createBufferSource();s.buffer=nbuf;var b=AC.createBiquadFilter();b.type=type;b.frequency.setValueAtTime(f,t);if(f1)b.frequency.exponentialRampToValueAtTime(f1,t+dur);b.Q.value=q;
+  var v=AC.createGain();v.gain.setValueAtTime(0.0001,t);v.gain.exponentialRampToValueAtTime(vol,t+Math.min(.08,dur/3));v.gain.exponentialRampToValueAtTime(0.0001,t+dur);s.connect(b);b.connect(v);v.connect(out(pan));s.start(t,Math.random());s.stop(t+dur+.05)}
+function tone(f0,f1,dur,vol,pan){
+  if(!ac())return;var t=AC.currentTime,o=AC.createOscillator(),v=AC.createGain();o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  v.gain.setValueAtTime(vol,t);v.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.connect(v);v.connect(out(pan));o.start(t);o.stop(t+dur+.02)}
+var SND={
+  plop:function(){tone(320,90,.16,.22,0);nz('bandpass',1200,1,.25,.05,0,300)},
+  tick:function(pan,v){tone(1500,900,.035,v||.05,pan)},
+  swirl:function(pan,size,v){var f=[900,650,380,170][size];nz('bandpass',f,2.5,.7+size*.3,v||.12,pan,f*.45)},
+  bloop:function(pan){tone(500,820,.2,.12,pan)},
+  splash:function(pan,size){nz('highpass',700,.7,.35+size*.12,.2+size*.05,pan,3000);tone(200,60,.25,.12+size*.03,pan)},
+  rumble:function(){nz('lowpass',140,1,2.6,.12,0)},
+  thunder:function(delay){nz('lowpass',180,.8,2.2,.35,0,60,delay)},
+  clunk:function(){tone(180,110,.12,.1,0)}
+};
+function rainOn(on){if(!AC)return;if(on&&!S.rainSrc){var s=AC.createBufferSource();s.buffer=nbuf;s.loop=true;var f=AC.createBiquadFilter();f.type='highpass';f.frequency.value=2500;var v=AC.createGain();v.gain.value=.025;s.connect(f);f.connect(v);v.connect(master);s.start();S.rainSrc=s}else if(!on&&S.rainSrc){try{S.rainSrc.stop()}catch(e){}S.rainSrc=null}}
+function buzz(p){try{if(navigator.vibrate)navigator.vibrate(p)}catch(e){}}
+
+/* ---------- drawing the creatures (used at the reveal and in the logbook) ---------- */
+function ell(c,x,y,rx,ry,col,rot){c.fillStyle=col;c.beginPath();c.ellipse(x,y,rx,ry,rot||0,0,7);c.fill()}
+function eye(c,x,y,r){ell(c,x,y,r,r,'#fff');ell(c,x+r*.25,y,r*.5,r*.5,'#05060d')}
+function poly(c,pts,col){c.fillStyle=col;c.beginPath();c.moveTo(pts[0],pts[1]);for(var i=2;i<pts.length;i+=2)c.lineTo(pts[i],pts[i+1]);c.closePath();c.fill()}
+function drawCreature(c,id,x,y,s,t){
+  t=t||0;c.save();c.translate(x,y);c.scale(s,s);c.lineCap='round';c.lineJoin='round';
+  if(id==='glimmerling'){poly(c,[-34,0,-62,-17,-62,17],'#1e9c94');ell(c,0,0,40,21,'#2ad4c8');ell(c,4,6,30,10,'#7cf0e4');
+    c.fillStyle='#d8fff9';c.shadowColor='#7cf5ea';c.shadowBlur=10;[-18,-6,6,18].forEach(function(px,i){c.beginPath();c.arc(px,-8+(i%2)*3,2.6,0,7);c.fill()});c.shadowBlur=0;eye(c,24,-5,5.5)}
+  else if(id==='dawdler'){ell(c,0,14,48,11,'#4f8a2c');c.fillStyle='#9be15d';c.beginPath();c.arc(-4,12,36,Math.PI,0);c.closePath();c.fill();
+    c.strokeStyle='#5d9c32';c.lineWidth=3;c.beginPath();c.arc(-4,12,24,Math.PI,Math.PI*1.9);c.stroke();c.beginPath();c.arc(-4,12,12,Math.PI,Math.PI*1.85);c.stroke();
+    c.strokeStyle='#4f8a2c';c.lineWidth=4;[[34,10,44,-18],[42,12,56,-10]].forEach(function(p){c.beginPath();c.moveTo(p[0],p[1]);c.lineTo(p[2],p[3]);c.stroke();eye(c,p[2],p[3],5)});
+    c.lineWidth=3;[-30,-12,8,26].forEach(function(px){c.beginPath();c.moveTo(px,22);c.lineTo(px-4,30);c.stroke()})}
+  else if(id==='skimray'){c.strokeStyle='#8c79e0';c.lineWidth=4;c.beginPath();c.moveTo(52,0);c.quadraticCurveTo(80,10,100,4+Math.sin(t*3)*4);c.stroke();
+    c.fillStyle='#b9a7ff';c.beginPath();c.moveTo(-58,0);c.quadraticCurveTo(-10,-46,52,0);c.quadraticCurveTo(-10,46,-58,0);c.fill();
+    c.fillStyle='#d9ceff';c.beginPath();c.moveTo(-40,0);c.quadraticCurveTo(-8,-20,30,0);c.quadraticCurveTo(-8,20,-40,0);c.fill();eye(c,-38,-7,4.5);eye(c,-38,7,4.5)}
+  else if(id==='ribbonjaw'){for(var i=0;i<26;i++){var px=-76+i*5.6,py=Math.sin(i*.45+t*2)*13,r=14-i*.4;ell(c,px,py,Math.max(4,r),Math.max(4,r),i%2?'#ff7a6b':'#ff9a8b')}
+    var hy=Math.sin(25*.45+t*2)*13;poly(c,[64,hy-10,96,hy+2,64,hy+4],'#ffb3a8');poly(c,[62,hy+3,92,hy+8,60,hy+16],'#e0594a');eye(c,66,hy-6,4.5)}
+  else if(id==='gulper'){poly(c,[-10,-44,10,-62,24,-40],'#e08b1d');poly(c,[-48,0,-76,-20,-76,20],'#e08b1d');ell(c,0,0,52,46,'#ffb347');ell(c,-6,12,36,24,'#ffd08a');
+    ell(c,36,6,24,24,'#2a0e12');c.fillStyle='#fff3d0';[[22,-8],[30,-12],[38,-14],[22,22],[30,26],[38,28]].forEach(function(p){poly(c,[p[0]-3,p[1],p[0]+3,p[1],p[0],p[1]+(p[1]<6?8:-8)],'#fff3d0')});eye(c,14,-26,6.5)}
+  else if(id==='hollowking'){c.shadowColor='#8f8cff';c.shadowBlur=22;poly(c,[-80,0,-118,-30,-110,0,-118,30],'#25244d');ell(c,0,4,86,50,'#25244d');c.shadowBlur=0;
+    c.strokeStyle='#8f8cff';c.lineWidth=2.5;c.beginPath();c.ellipse(0,4,86,50,0,0,7);c.stroke();
+    c.fillStyle='#d6d2ff';for(var k=0;k<5;k++){var cx=-40+k*22;poly(c,[cx-9,-42,cx,-72+(k%2)*10,cx+9,-42],'#d6d2ff')}
+    c.shadowColor='#bfe9ff';c.shadowBlur=18;ell(c,34,-8,13,17,'#bfe9ff');ell(c,-2,-8,10,14,'#bfe9ff');c.shadowBlur=0;ell(c,36,-8,5,8,'#0a0b1c');ell(c,0,-8,4,7,'#0a0b1c');
+    c.strokeStyle='#d6d2ff';c.lineWidth=3;c.beginPath();c.moveTo(6,26);for(var j=0;j<9;j++)c.lineTo(6+j*8,26+(j%2?6:-4));c.stroke()}
+  else if(id==='boot'){poly(c,[-30,-44,10,-44,12,-6,50,6,56,26,-30,26],'#7a5230');poly(c,[-30,20,56,20,56,30,-30,30],'#3d2a18');c.strokeStyle='#e0c9a0';c.lineWidth=2.5;[-36,-26,-16].forEach(function(py){c.beginPath();c.moveTo(-26,py);c.lineTo(6,py+3);c.stroke()})}
+  else if(id==='weed'){c.strokeStyle='#3d9a4e';c.lineWidth=7;for(var w=0;w<7;w++){c.strokeStyle=w%2?'#3d9a4e':'#2a7a3a';c.beginPath();c.moveTo(-42+w*14,36);c.bezierCurveTo(-52+w*14+Math.sin(t*2+w)*8,10,-30+w*14,-14,-42+w*14+Math.sin(t*2+w+1)*10,-44);c.stroke()}}
+  else if(id==='snag'){c.strokeStyle='#6b5a45';c.lineWidth=9;c.beginPath();c.moveTo(-70,30);c.lineTo(-10,0);c.lineTo(60,-30);c.stroke();c.lineWidth=5;[[-10,0,10,-34],[20,-12,52,10],[-40,16,-52,-12]].forEach(function(p){c.beginPath();c.moveTo(p[0],p[1]);c.lineTo(p[2],p[3]);c.stroke()});
+    c.strokeStyle='#3f6a3a';c.lineWidth=3;c.beginPath();c.moveTo(-30,10);c.quadraticCurveTo(-20,36,-34,44);c.stroke()}
+  c.restore()}
+
+/* ---------- canvas ---------- */
+function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);g.setTransform(DPR,0,0,DPR,0,0);U=Math.min(W,H)*(W<H?.3:.24);CX=W/2;WY=H*(W<H?.46:.5);seedParts()}
+addEventListener('resize',resize);
+
+function seedParts(){S.parts=[];var c=S.cast&&S.cast.condition,n=c==='rain'?110:c==='wind'?30:c==='current'?46:0;
+  for(var i=0;i<n;i++)S.parts.push({x:Math.random()*W,y:c==='rain'?Math.random()*H:WY+Math.random()*(H-WY),v:.6+Math.random()*.8,l:Math.random()})}
+
+function floatShape(c,len,w,tipA,glow){
+  c.fillStyle='#161a30';c.strokeStyle='rgba(190,200,255,.35)';c.lineWidth=1.2;
+  var r=w/2;c.beginPath();c.moveTo(-r,0);c.lineTo(-r,-len+r);c.arc(0,-len+r,r,Math.PI,0);c.lineTo(r,0);c.closePath();c.fill();c.stroke();
+  c.fillStyle='#b3304a';c.fillRect(-r,-len*.35,w,len*.12);
+  c.save();c.globalAlpha=tipA;if(glow){c.shadowColor='#ffd27a';c.shadowBlur=glow}c.fillStyle='#ffd27a';c.beginPath();c.arc(0,-len+r,r*1.05,0,7);c.fill();c.restore()}
+
+function drawScene(dt){
+  var tt=S.t,cast=S.cast,cond=cast?cast.condition:'calm';
+  /* sky and water */
+  var bg=g.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#02040a');bg.addColorStop(WY/H,'#0a1226');bg.addColorStop(WY/H+.001,'#050912');bg.addColorStop(1,'#020308');g.fillStyle=bg;g.fillRect(0,0,W,H);
+  var moon=.2+.5*Math.pow(Math.max(0,Math.sin(tt*.21+S.moonPh)),2),mx=W*.78,my=H*.13;
+  var mg=g.createRadialGradient(mx,my,0,mx,my,U*.9);mg.addColorStop(0,'rgba(210,225,255,'+(.5*moon)+')');mg.addColorStop(.25,'rgba(150,170,230,'+(.16*moon)+')');mg.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=mg;g.fillRect(0,0,W,WY);
+  g.fillStyle='rgba(235,242,255,'+(.55*moon+.1)+')';g.beginPath();g.arc(mx,my,U*.07,0,7);g.fill();
+  for(var i=0;i<16;i++){var yy=WY+Math.pow(i/16,1.6)*(H-WY),ww=U*(.4+i*.07)*(.6+.4*Math.sin(tt*.8+i*1.7));g.fillStyle='rgba(190,205,255,'+(.05*moon*(1-i/17))+')';g.fillRect(mx-ww/2+Math.sin(tt*.6+i)*U*.05,yy,ww,1.5)}
+  g.fillStyle='rgba(150,170,230,.08)';g.fillRect(0,WY,W,1);
+  for(var j=0;j<10;j++){var ly=WY+(j+1)*(H-WY)/11;g.fillStyle='rgba(120,140,220,.035)';g.fillRect(W*.1+Math.sin(tt*.5+j)*20,ly,W*.8,1)}
+  /* condition particles */
+  var cm=cond==='current';
+  S.parts.forEach(function(p){
+    if(cond==='rain'){p.y+=p.v*H*1.1*dt;p.x-=p.v*U*.25*dt;if(p.y>H){p.y=-20;p.x=Math.random()*W+U}g.strokeStyle='rgba(170,190,255,.16)';g.lineWidth=1;g.beginPath();g.moveTo(p.x,p.y);g.lineTo(p.x+U*.03,p.y-U*.12);g.stroke()}
+    else if(cond==='wind'){p.x+=p.v*U*1.2*dt;if(p.x>W+60)p.x=-60;g.fillStyle='rgba(170,190,255,'+(.04+.05*p.l)+')';g.fillRect(p.x,p.y,U*(.2+p.l*.4),1.5)}
+    else if(cm){p.x+=.045*U*dt*(S.state==='cast'?1:0);if(p.x>W+10)p.x=-10;g.fillStyle='rgba(190,205,255,'+(.1+.15*p.l)+')';g.beginPath();g.arc(p.x,p.y,1.2+p.l*1.3,0,7);g.fill()}});
+  if(cond==='rain'&&Math.random()<dt*30)S.rip.push({x:Math.random()*W,y:WY+8+Math.random()*(H-WY-20),age:0,r:U*.06,a:.12,fl:1});
+  /* float */
+  var f=cast?NF.floatAt(cast,Math.max(0,tt)):{x:0,dip:0,lift:0,trem:0};
+  var dip=f.dip+f.trem,px=CX+f.x*U,py=WY;
+  if(S.state==='struck'){S.strikeAnim+=dt;var k=Math.min(1,S.strikeAnim/.5);dip=S.strikeLand?(-.4*Math.sin(k*Math.PI)):(.1*Math.sin(k*Math.PI))}
+  if(S.state!=='cast'&&S.state!=='struck'){dip=0;px=CX;f={x:0,dip:0,lift:0,trem:0}}
+  /* ripples from sudden pulls */
+  S.ripCd-=dt;if(S.state==='cast'&&dip-S.prevDip>.018&&S.ripCd<=0){S.rip.push({x:px,y:py,age:0,r:U*.1,a:.4});S.ripCd=.12}
+  S.prevDip=dip;
+  S.rip=S.rip.filter(function(r){r.age+=dt;if(r.age>2.2)return false;var k2=r.age/2.2,rx=r.r+k2*U*(r.fl?.35:.9);g.strokeStyle='rgba(190,205,255,'+(r.a*(1-k2))+')';g.lineWidth=1.3;g.beginPath();g.ellipse(r.x,r.y,rx,rx*.28,0,0,7);g.stroke();return true});
+  /* line */
+  g.strokeStyle='rgba(200,210,255,.22)';g.lineWidth=1;g.beginPath();g.moveTo(px,py-U*.7);g.quadraticCurveTo(W*.6,H*.9,W*.9,H+20);g.stroke();
+  var sub=Math.max(-.2,Math.min(1.25,dip)),len=U*.95*(1-Math.min(1,Math.max(0,sub))*.9)+(sub<0?-sub*U*.3:0),tipA=1-Math.min(1,Math.max(0,(sub-.8)/.45))*.85,ang=f.lift*Math.PI*.46,w=U*.13;
+  for(var pass=0;pass<2;pass++){
+    g.save();g.translate(px,py-f.lift*U*.05);
+    if(pass===1){g.scale(1,-1);g.globalAlpha=.16}
+    g.rotate(ang);floatShape(g,len,w,tipA,pass?0:U*.35);g.restore()}
+  if(sub>.15){g.fillStyle='rgba(255,210,122,'+Math.min(.25,sub*.15)+')';g.beginPath();g.ellipse(px,py+2,U*.2*Math.min(1,sub+.2),U*.05,0,0,7);g.fill()}
+  /* lightning */
+  if(S.flash>.01){g.fillStyle='rgba(210,225,255,'+(S.flash*(reduce?.12:.4))+')';g.fillRect(0,0,W,H);S.flash*=Math.exp(-dt*6)}
+}
+
+/* ---------- UI helpers ---------- */
+var panel=$('panel'),ctl=$('ctl');
+function showPanel(html){panel.innerHTML=html;panel.hidden=false;ctl.hidden=true;panel.scrollTop=0;var b=panel.querySelector('.pri')||panel.querySelector('button');if(b)b.focus({preventScroll:true})}
+function hidePanel(){panel.hidden=true}
+function toast(m){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(function(){t.classList.remove('on')},2200)}
+function say(m){$('live').textContent=m}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function icon(id){
+  var sc={small:.5,medium:.72,large:.92,monster:1.1}[id];
+  if(id==='notfish')return'<svg viewBox="0 0 34 24" aria-hidden="true"><circle cx="17" cy="12" r="9"/><path d="M11 6l12 12"/></svg>';
+  var spikes=id==='monster'?'<path d="M12 4l2 3M17 3l1 4M22 4l-1 3"/>':'';
+  return'<svg viewBox="0 0 34 24" aria-hidden="true"><g transform="translate(17 12) scale('+sc+') translate(-15 -12)"><path d="M4 12C8 4 18 4 22 12C18 20 8 20 4 12Z"/><path d="M22 12l7-6v12z"/><circle cx="10" cy="10.5" r="1" fill="currentColor"/>'+spikes+'</g></svg>'}
+function buildCalls(){$('calls').innerHTML=CALLS.map(function(c,i){return'<button type="button" data-c="'+c.id+'" aria-pressed="false" aria-label="Call: '+c.label+'">'+icon(c.id)+'<span>'+c.label+'</span><kbd>'+(i+1)+'</kbd></button>'}).join('')}
+function setCall(id){S.call=S.call===id?null:id;[].forEach.call($('calls').children,function(b){b.setAttribute('aria-pressed',b.dataset.c===S.call?'true':'false')});
+  $('callnote').textContent=S.call?'Your call: '+CALLS.filter(function(c){return c.id===S.call})[0].label:'No call yet (optional)'}
+function setStat(){$('stat').innerHTML='Cast <b>'+Math.min(S.idx+1,NF.CASTS)+'</b>/'+NF.CASTS+' &middot; <b>'+S.total+'</b> pts';
+  $('lakeinfo').innerHTML=S.lake?'<b>'+esc(S.lake.name)+'</b><span class="chip">'+esc(S.lake.condition)+'</span>':''}
+function muteUI(){var b=$('mute');b.textContent=muted?'Sound off':'Sound on';b.setAttribute('aria-pressed',muted?'true':'false');if(master)master.gain.value=muted?0:.8}
+
+/* ---------- logbook ---------- */
+function logGet(){return lsGet('nf.log',{})}
+function showLogbook(back){
+  var lg=logGet(),ids=Object.keys(NF.CREATURES);
+  showPanel('<h2>Logbook</h2><p>A creature is recorded after your first catch, with its size and its float signature.</p><div class="grid">'+ids.map(function(id){var c=NF.CREATURES[id],has=lg[id];
+    return has?'<div class="entry"><canvas width="240" height="140" data-id="'+id+'" aria-label="'+esc(c.name)+'"></canvas><b>'+esc(c.name)+'</b>'+esc(cap(c.size))+' &middot; caught '+has.n+'&times;<br><span style="color:var(--dim)">'+esc(c.sig)+'</span><br><span style="color:var(--dim)">'+esc(c.tip)+'</span></div>'
+      :'<div class="entry lock"><canvas width="240" height="140"></canvas><b>Not caught yet</b>Catch one to learn its signature.</div>'}).join('')+'</div><div class="row"><button class="btn pri" type="button" id="lbBack">Back</button></div>');
+  [].forEach.call(panel.querySelectorAll('canvas[data-id]'),function(c){var id=c.dataset.id,x=c.getContext('2d');drawCreature(x,id,120,72,id==='hollowking'?.52:.68,0)});
+  $('lbBack').onclick=back||showMenu}
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+
+/* ---------- panels ---------- */
+function todayKey(){return'nf.d.'+NF.dailySeed()}
+function showMenu(){
+  S.state='menu';S.lake=null;S.cast=null;S.rip=[];S.parts=[];setStat();$('timerFill').style.transform='scaleX(1)';rainOn(false);
+  var d=lsGet(todayKey(),null),done=d&&d.results&&d.results.length>=NF.CASTS,started=d&&d.results&&d.results.length>0;
+  showPanel('<h1>Night Float</h1><p>One glowing float on black water. Read how it moves, call what is on the line, and strike once.</p>'
+   +'<p><b>Today&rsquo;s lake</b> ('+NF.dailySeed()+') is the same for everyone, with one attempt.</p>'
+   +'<div class="row"><button class="btn pri" id="mDaily" type="button">'+(done?'See today&rsquo;s result':started?'Resume daily lake':'Play daily lake')+'</button><button class="btn" id="mPrac" type="button">Practice</button></div>'
+   +'<div class="row"><button class="btn" id="mLog" type="button">Logbook</button><button class="btn" id="mHow" type="button">How to play</button></div>');
+  $('mDaily').onclick=function(){start(true)};$('mPrac').onclick=function(){start(false)};$('mLog').onclick=function(){showLogbook(showMenu)};$('mHow').onclick=function(){showHow(showMenu)}}
+function showHow(back){
+  showPanel('<h2>How to play</h2><p>Seven casts, about 25 seconds each. Something touches the bait and the float moves. Decide what it is, then strike once.</p>'
+   +'<table><tr><th>Float does</th><th>It means</th></tr><tr><td>Quick shallow taps</td><td>Small creature nibbling</td></tr><tr><td>Slow sideways drift, no dip</td><td>Bait is carried off. Strike late.</td></tr><tr><td>Rises and lies flat</td><td>Bait lifted from below</td></tr><tr><td>One hard plunge</td><td>Large creature. About half a second.</td></tr><tr><td>Trembles, no movement</td><td>Something big is near</td></tr><tr><td>Regular rhythmic bob</td><td>Waves, a snag or junk. Not a fish.</td></tr></table>'
+   +'<p><b>Call</b> (optional, changeable until you strike): Small, Medium, Large, Monster or Not a fish. A right call multiplies your points.</p>'
+   +'<p><b>Strike</b> once (Space, or tap the water). Too early pulls the bait away, too late and it is gone, junk scores zero. Pass up a smaller creature and land a bigger one for a patience bonus. Calling Not a fish and not striking earns a small bonus.</p>'
+   +'<p>Sounds give extra clues, and phones buzz with line tension. Keys: 1 to 5 for calls, M for sound.</p><div class="row"><button class="btn pri" id="hwBack" type="button">Back</button></div>');
+  $('hwBack').onclick=back||showMenu}
+
+function start(daily){
+  ac();S.daily=daily;S.seed=daily?NF.dailySeed():'p'+Math.random().toString(36).slice(2,9);S.lake=NF.genLake(S.seed);S.results=[];S.total=0;S.idx=0;
+  if(daily){var d=lsGet(todayKey(),null);if(d&&d.results){S.results=d.results.slice();if(d.cur!=null&&d.cur===S.results.length&&S.results.length<NF.CASTS){S.results.push({outcome:'none',points:0,correct:false,notFishOk:false,creature:null});lsSet(todayKey(),{results:S.results,cur:null})}
+    S.total=S.results.reduce(function(a,r){return a+r.points},0);S.idx=S.results.length}}
+  S.cast=S.lake.casts[Math.min(S.idx,NF.CASTS-1)];setStat();
+  if(S.idx>=NF.CASTS)return showResult();
+  showPanel('<h2>'+esc(S.lake.name)+'</h2><p><span class="chip" style="margin-left:0">'+esc(S.lake.condition)+'</span> '+esc(COND_TEXT[S.lake.condition])+'</p>'
+    +'<p>'+(S.daily?(S.idx?'Cast '+(S.idx+1)+' of '+NF.CASTS+'. Reloading mid-cast counts that cast as missed.':'One attempt today. Reloading mid-cast counts that cast as missed.'):'Practice: a random lake that does not count for the daily result.')+'</p>'
+    +'<div class="row"><button class="btn pri" id="goCast" type="button">Start casting</button><button class="btn" id="goBack" type="button">Back</button></div>');
+  $('goCast').onclick=readyCast;$('goBack').onclick=showMenu}
+
+function readyCast(){
+  S.state='ready';S.cast=S.lake.casts[S.idx];S.t=0;S.call=null;S.rip=[];S.prevDip=0;seedParts();setStat();$('timerFill').style.transform='scaleX(1)';
+  showPanel('<h2>Cast '+(S.idx+1)+' of '+NF.CASTS+'</h2><p>'+esc(S.lake.name)+' &middot; '+esc(S.lake.condition)+'</p><div class="row"><button class="btn pri" id="doCast" type="button">Cast line <span style="font-weight:400">(Space)</span></button></div>');
+  $('doCast').onclick=beginCast}
+
+function buildEvents(cast){
+  var ev=[];
+  cast.enc.forEach(function(e){
+    var pan=e.dir*.7,sz=e.kind==='fish'?NF.RANK[e.size]:0;
+    if(e.kind==='object'){for(var t=e.start+.6;t<e.end-.5;t+=e.period)ev.push({t:t,f:function(){SND.clunk()}});return}
+    ev.push({t:e.start,f:function(){SND.swirl(pan,sz)}});
+    if(e.taps)e.taps.forEach(function(tp){ev.push({t:e.start+tp,f:function(){SND.tick(pan,.05)}})});
+    if(e.id==='skimray')ev.push({t:e.start+.1,f:function(){SND.bloop(pan)}});
+    if(e.id==='hollowking')ev.push({t:e.start+.2,f:function(){SND.rumble()}});
+    if(e.pt!=null)ev.push({t:e.start+e.pt,f:function(){SND.splash(pan,sz);buzz(sz>2?[80,30,80]:60)}});
+    if(e.ds!=null)ev.push({t:e.start+e.ds,f:function(){SND.swirl(pan,0,.07)}});
+    if(e.id==='hollowking'){for(var v=.4;v<e.pt;v+=.45)(function(tv){ev.push({t:e.start+tv,f:function(){buzz(12)}})})(v)}});
+  cast.fake.forEach(function(fk){var pan=(fk.dir||(Math.random()<.5?-1:1))*.6;
+    if(fk.type==='taps')fk.taps.forEach(function(tp){ev.push({t:fk.start+tp,f:function(){SND.tick(pan,.04)}})});else ev.push({t:fk.start,f:function(){SND.swirl(pan,0,.06)}})});
+  ev.sort(function(a,b){return a.t-b.t});return ev}
+
+function beginCast(){
+  if(!ac()){}
+  hidePanel();ctl.hidden=false;buildCalls();setCall(null);S.state='cast';S.t=0;S.events=buildEvents(S.cast);S.evI=0;S.strikeAnim=0;S.moonPh=Math.random()*6;
+  if(S.daily)lsSet(todayKey(),{results:S.results,cur:S.idx});
+  var c=S.cast.condition;S.flashes=[];if(c==='rain'||c==='wind'){var n=c==='rain'?1+Math.floor(Math.random()*3):Math.floor(Math.random()*2);for(var i=0;i<n;i++)S.flashes.push(3+Math.random()*19);S.flashes.sort(function(a,b){return a-b})}
+  rainOn(c==='rain');SND.plop();say('Cast '+(S.idx+1)+' of '+NF.CASTS+'. Watch the float.');$('callnote').textContent='No call yet (optional)'}
+
+function update(dt){
+  if(S.state!=='cast')return;
+  S.t+=dt;
+  while(S.evI<S.events.length&&S.events[S.evI].t<=S.t){try{S.events[S.evI].f()}catch(e){}S.evI++}
+  while(S.flashes.length&&S.flashes[0]<=S.t){S.flashes.shift();S.flash=1;SND.thunder(.5+Math.random()*1.5)}
+  $('timerFill').style.transform='scaleX('+Math.max(0,1-S.t/NF.CAST_SECS)+')';
+  if(S.t>=NF.CAST_SECS)finishCast(null)}
+
+function strike(){
+  if(S.state!=='cast'||S.t<NF.SETTLE)return;
+  var res=NF.resolveStrike(S.cast,S.t);S.strikeLand=res.outcome==='landed';S.strikeAnim=0;S.state='struck';
+  S.rip.push({x:CX+NF.floatAt(S.cast,S.t).x*U,y:WY,age:0,r:U*.1,a:.5});
+  SND.splash(0,S.strikeLand?NF.RANK[res.enc.size]:0);buzz(S.strikeLand?[40,40,90]:30);rainOn(false);ctl.hidden=true;
+  finishCast(res)}
+
+function finishCast(res){
+  var sc=NF.scoreCast(S.cast,res,S.call);S.state='struck';if(!res){S.strikeAnim=0;S.strikeLand=false;ctl.hidden=true}rainOn(false);
+  S.results.push({outcome:sc.outcome,points:sc.points,correct:sc.correct,notFishOk:sc.notFishOk,creature:sc.creature});S.total+=sc.points;
+  if(S.daily)lsSet(todayKey(),{results:S.results,cur:null});
+  var lg=null;if(sc.creature){lg=logGet();var nw=!lg[sc.creature];lg[sc.creature]={n:((lg[sc.creature]||{}).n||0)+1,first:(lg[sc.creature]||{}).first||NF.dailySeed(new Date().toISOString().slice(0,10))};lsSet('nf.log',lg);sc.isNew=nw}
+  setTimeout(function(){reveal(res,sc)},res?1000:600)}
+
+function reveal(res,sc){
+  S.state='reveal';var cast=S.cast,enc=res&&res.enc?res.enc:null;
+  if(!enc){var best=null;cast.enc.forEach(function(e){if(!best||(e.kind==='fish'&&(best.kind!=='fish'||NF.RANK[e.size]>NF.RANK[best.size])))best=e});enc=best}
+  var def=NF.CREATURES[enc.id]||NF.OBJECTS[enc.id],hasFish=cast.enc.some(function(e){return e.kind==='fish'}),title,sub='';
+  var o=sc.outcome;
+  if(o==='landed'){title='You landed a '+def.name+'.';sub=cap(def.size)+' &middot; base '+sc.base+(sc.correct?' &times; '+sc.mult+' for calling it':'')+(sc.patience?' + '+sc.patience+' patience':'')+(S.call&&!sc.correct?' (your call was '+esc(callLabel(S.call))+')':'')}
+  else if(o==='junk'){title='Junk. You hauled up '+(enc.id==='boot'?'an old boot':enc.id==='weed'?'a tangle of weed':'a snag')+'.';sub='Zero points.'}
+  else if(o==='early'){title='Too early. The bait was pulled away.';sub=enc.kind==='fish'?'It was a '+def.name+'. '+def.tip:'It was '+def.name.toLowerCase()+'.'}
+  else if(o==='late'){title='Too late. The bait was gone.';sub=enc.kind==='fish'?'It was a '+def.name+'. '+def.tip:'It was '+def.name.toLowerCase()+'.'}
+  else if(sc.notFishOk){title='Good read. Not a fish.';sub='It was '+def.name.toLowerCase()+'. +'+NF.NOT_FISH_BONUS+' for leaving it.'}
+  else{title='The cast ran out.';sub=hasFish?'A '+def.name+' was there ('+def.size+').':'It was only '+def.name.toLowerCase()+'. Call Not a fish next time and leave it for a bonus.'}
+  var last=S.idx>=NF.CASTS-1;
+  showPanel('<canvas id="rcv" width="520" height="300" aria-label="'+esc(def.name)+'"></canvas><h2 style="margin-top:12px">'+esc(title)+(sc.isNew?'<span class="new">New in logbook</span>':'')+'</h2><p>'+sub+'</p><p><b style="font-size:20px;color:var(--glow)">+'+sc.points+'</b> &middot; total '+S.total+'</p>'
+    +'<div class="row"><button class="btn pri" id="nxt" type="button">'+(last?'See result':'Next cast')+'</button></div>');
+  var c=$('rcv').getContext('2d'),t0=performance.now();(function anim(){if(S.state!=='reveal'||!document.body.contains($('rcv')))return;c.clearRect(0,0,520,300);drawCreature(c,enc.id,260,150,enc.id==='hollowking'?1.15:1.45,(performance.now()-t0)/1000);requestAnimationFrame(anim)})();
+  $('nxt').onclick=function(){S.idx++;if(S.idx>=NF.CASTS)showResult();else{S.cast=S.lake.casts[S.idx];readyCast()}};
+  setStat();say(title+' '+sc.points+' points.')}
+function callLabel(id){return CALLS.filter(function(c){return c.id===id})[0].label}
+
+function showResult(){
+  S.state='result';ctl.hidden=true;setStat();$('timerFill').style.transform='scaleX(0)';
+  var rows=S.results.map(function(r,i){var gl=NF.glyph(r);return'<li><span class="em" aria-hidden="true">'+EMO[gl]+'</span><span>Cast '+(i+1)+' &middot; '+GLABEL[gl]+'</span><span class="pts">'+r.points+'</span></li>'}).join('');
+  showPanel('<h2>'+(S.daily?'Today&rsquo;s lake':'Practice lake')+' &middot; '+esc(S.lake.name)+'</h2><div class="big">'+S.total+' pts</div><ul class="list">'+rows+'</ul>'
+    +'<p style="font-size:13px">The share text shows how each cast went, never which creature it was.</p><div class="row"><button class="btn pri" id="shr" type="button">Copy share text</button><button class="btn" id="prc" type="button">Practice</button></div>'
+    +'<div class="row"><button class="btn" id="lg" type="button">Logbook</button><button class="btn" id="mn" type="button">Menu</button></div>'+(S.daily?'<p style="font-size:13px">A new lake arrives every day (UTC).</p>':''));
+  var txt=NF.shareText(S.seed,S.lake,S.results,S.total,S.daily);
+  $('shr').onclick=function(){
+    function done(){toast('Copied. Paste it anywhere.')}
+    if(navigator.share&&/Mobi|Android/i.test(navigator.userAgent)){navigator.share({text:txt}).catch(function(){})}
+    else if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(done,function(){prompt('Copy this:',txt)});else prompt('Copy this:',txt)};
+  $('prc').onclick=function(){start(false)};$('lg').onclick=function(){showLogbook(showResult)};$('mn').onclick=showMenu}
+
+/* ---------- input ---------- */
+$('strike').addEventListener('click',strike);
+$('calls').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;setCall(b.dataset.c);if(e.detail>0)b.blur()});
+cv.addEventListener('pointerdown',function(){strike()});
+$('mute').addEventListener('click',function(e){muted=!muted;lsSet('nf.muted',muted);muteUI();if(e.detail>0)e.currentTarget.blur()});
+addEventListener('keydown',function(e){
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  var tag=e.target&&e.target.tagName;
+  if(e.key==='m'||e.key==='M'){$('mute').click();return}
+  if(e.code==='Space'||e.key===' '){
+    if(S.state==='cast'){e.preventDefault();strike()}
+    else if(S.state==='ready'&&tag!=='BUTTON'){e.preventDefault();beginCast()}
+    return}
+  if(S.state==='cast'&&/^[1-5]$/.test(e.key)){setCall(CALLS[+e.key-1].id)}
+});
+document.addEventListener('visibilitychange',function(){last=performance.now()});
+
+/* ---------- main loop ---------- */
+var last=performance.now();
+function loop(now){
+  requestAnimationFrame(loop);
+  var dt=Math.min(.1,(now-last)/1000);last=now;
+  try{update(dt);drawScene(dt)}catch(e){console.error(e)}}
+resize();muteUI();showMenu();requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
