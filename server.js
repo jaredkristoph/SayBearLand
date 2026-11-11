@@ -7,6 +7,7 @@ const http = require('http');
 const A = require('./lib/auth');
 const L = require('./public/layout.js');
 const { createWorld } = require('./lib/world');
+const { createNightfloat } = require('./lib/nightfloat');
 
 function createApp(store = createStore(), env = process.env) {
   const SECRET = env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
@@ -181,8 +182,10 @@ function createApp(store = createStore(), env = process.env) {
   const r1 = (n) => Math.round(n * 10) / 10;
   const addCoins = (username, n) => withLock(username, async () => { const u = await store.get(userKey(username)); if (!u) return null; u.coins = r1((u.coins || 0) + n); await store.set(userKey(username), u); return u.coins; });
   const spendCoins = (username, n) => withLock(username, async () => { const u = await store.get(userKey(username)); if (!u || (u.coins || 0) < n - 1e-9) return null; u.coins = r1((u.coins || 0) - n); await store.set(userKey(username), u); return u.coins; });
+  const nightfloat = createNightfloat({ authenticate });
   const world = createWorld({ authenticate, getLayout, getBots, store, canWear, addCoins, spendCoins, deskPaySecs: Number(env.DESK_PAY_SECS) || 10 });
   app.locals.world = world;
+  app.locals.nightfloat = nightfloat;
 
 
   // ---- mail: the only way coins and new outfits arrive ----
@@ -358,6 +361,7 @@ if (require.main === module) {
   const app = createApp(store);
   const server = http.createServer(app);
   app.locals.world.handleUpgrade(server);
+  app.locals.nightfloat.handleUpgrade(server);
   server.listen(port, () => console.log(`SayBearLand on :${port} (storage: ${store.kind})`));
 }
 module.exports = { createApp };

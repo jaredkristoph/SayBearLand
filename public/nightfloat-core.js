@@ -1,33 +1,36 @@
-/* Night Float: game rules shared by the page and the tests (no DOM here). */
+/* Night Float: rules shared by the page and the tests (no DOM here). */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.NF = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var CAST_SECS = 25, CASTS = 7, SETTLE = 1.4;
-  var SIZES = ['small', 'medium', 'large', 'monster'];
-  var RANK = { small: 0, medium: 1, large: 2, monster: 3 };
-  var BASE = { small: 10, medium: 25, large: 50, monster: 120 };
-  // Open question in the brief: same multiplier for every size, or higher for Monster. One number per size so it is a one-line change.
-  var CALL_MULT = { small: 1.5, medium: 1.5, large: 1.5, monster: 1.5 };
-  var PATIENCE = 15, NOT_FISH_BONUS = 15;
+  var SETTLE = 1.4, LAKE_R = 50;
   var CONDITIONS = ['calm', 'wind', 'current', 'rain'];
 
-  // Six invented creatures and three non-fish objects.
+  // Six invented creatures and three non-fish objects. Nothing here has a size: what matters is how the float moves and how far out you cast.
   var CREATURES = {
-    glimmerling: { id: 'glimmerling', name: 'Glimmerling', size: 'small', sig: 'Quick shallow taps, then a small slow dip.', tip: 'Wait for the taps to stop.' },
-    dawdler: { id: 'dawdler', name: 'Dawdler', size: 'small', sig: 'Slow sideways drift, no dip.', tip: 'Strike late, once the drift ends.' },
-    skimray: { id: 'skimray', name: 'Skimray', size: 'medium', sig: 'The float rises and lies flat.', tip: 'Strike while it lies flat.' },
-    ribbonjaw: { id: 'ribbonjaw', name: 'Ribbonjaw', size: 'medium', sig: 'Taps first, then a slow drift.', tip: 'Let the drift finish.' },
-    gulper: { id: 'gulper', name: 'Gulper', size: 'large', sig: 'Quiet, then one hard plunge.', tip: 'About half a second to strike.' },
-    hollowking: { id: 'hollowking', name: 'Hollow King', size: 'monster', sig: 'Long trembling with no movement, then a huge plunge.', tip: 'The tremble means something big is near.' }
+    glimmerling: { id: 'glimmerling', name: 'Glimmerling', zone: 'near', sig: 'Quick shallow taps, then a small slow dip.', tip: 'Wait for the taps to stop.' },
+    dawdler: { id: 'dawdler', name: 'Dawdler', zone: 'near', sig: 'Slow sideways drift, no dip.', tip: 'Strike late, once the drift ends.' },
+    skimray: { id: 'skimray', name: 'Skimray', zone: 'mid', sig: 'The float rises and lies flat.', tip: 'Strike while it lies flat.' },
+    ribbonjaw: { id: 'ribbonjaw', name: 'Ribbonjaw', zone: 'mid', sig: 'Taps first, then a slow drift.', tip: 'Let the drift finish.' },
+    gulper: { id: 'gulper', name: 'Gulper', zone: 'far', sig: 'Quiet, then one hard plunge.', tip: 'About half a second to strike.' },
+    hollowking: { id: 'hollowking', name: 'Hollow King', zone: 'far', sig: 'Long trembling with no movement, then a huge plunge.', tip: 'The tremble means something big is near.' }
   };
   var OBJECTS = {
     boot: { id: 'boot', name: 'Old boot', sig: 'Regular, rhythmic bob.' },
     weed: { id: 'weed', name: 'Tangle of weed', sig: 'Regular, quick bob.' },
     snag: { id: 'snag', name: 'Snag', sig: 'Regular, shallow bob, held low.' }
   };
+  var ZONES = { near: 'Short cast, shallows', mid: 'Medium cast', far: 'Long cast, deep water' };
+  // Odds of what is under the float, by how far you cast. "junk" is replaced by the spot's own object.
+  var ZONE_ODDS = {
+    near: { glimmerling: 38, dawdler: 34, skimray: 14, ribbonjaw: 4, gulper: 0, hollowking: 0, junk: 10 },
+    mid: { glimmerling: 8, dawdler: 10, skimray: 24, ribbonjaw: 28, gulper: 12, hollowking: 1, junk: 17 },
+    far: { glimmerling: 0, dawdler: 2, skimray: 8, ribbonjaw: 16, gulper: 34, hollowking: 12, junk: 28 }
+  };
+  var CAST_MIN = 4, CAST_MAX = 20;
+  function zoneFor(d) { return d < 9 ? 'near' : d < 15 ? 'mid' : 'far'; }
 
   function hashStr(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
   function makeRng(seed) {
@@ -42,15 +45,14 @@
   /* ---------- encounters ---------- */
   // Times inside an encounter are relative while it is built, then shifted to absolute cast time.
   function build(id, start, r) {
-    var dir = r() < 0.5 ? -1 : 1, e = { id: id, start: start, dir: dir, kind: 'fish' }, c = CREATURES[id], i, t;
+    var dir = r() < 0.5 ? -1 : 1, e = { id: id, start: start, dir: dir, kind: 'fish' }, i, t;
     if (OBJECTS[id]) {
       e.kind = 'object'; var dur = range(r, 8, 11);
       e.wS = start; e.wE = start + dur; e.end = start + dur;
       e.period = id === 'boot' ? 1.7 : id === 'weed' ? 1.1 : 2.3; e.amp = id === 'boot' ? 0.13 : id === 'weed' ? 0.08 : 0.05; e.held = id === 'snag' ? 0.2 : 0;
       return e;
     }
-    e.size = c.size;
-    if (id === 'glimmerling') {
+        if (id === 'glimmerling') {
       e.taps = []; t = range(r, 0.2, 0.5); var n = 8 + Math.floor(r() * 5);
       for (i = 0; i < n; i++) { e.taps.push(t); t += range(r, 0.22, 0.42); }
       e.wS = e.taps[n - 1] + 0.3; e.wE = e.wS + 1.0; e.end = e.wE + 0.4;
@@ -116,34 +118,69 @@
     return o;
   }
 
-  /* ---------- a lake ---------- */
-  function genCast(r, spec, condition) {
-    var encs = [], t, i;
-    var ids = spec.type === 'seq' ? spec.ids : [spec.id];
-    t = range(r, 2.6, 5.5);
-    ids.forEach(function (id, k) {
-      var e = build(id, t, r); encs.push(e);
-      t = e.end + range(r, 1.6, 2.6);
-    });
-    var last = encs[encs.length - 1];
-    if (last.end > CAST_SECS - 1.5) { var shift = last.end - (CAST_SECS - 1.5); encs.forEach(function (e) { e.start -= shift; e.wS -= shift; e.wE -= shift; e.end -= shift; if (e.taps) { /* relative already */ } }); }
+  /* ---------- a lake and its casts ---------- */
+  function weightedPick(r, odds) {
+    var tot = 0, k; for (k in odds) tot += odds[k];
+    var x = r() * tot; for (k in odds) { x -= odds[k]; if (x < 0) return k; }
+    return 'glimmerling';
+  }
+  var LAKE_A = ['Hollow', 'Quiet', 'Slate', 'Lantern', 'Ember', 'Mirror', 'Thistle', 'Cinder', 'Velvet', 'Marrow', 'Pale', 'Tallow'];
+  var LAKE_B = ['Mere', 'Tarn', 'Pool', 'Water', 'Reach', 'Basin', 'Broad', 'Lake'];
+  var SPOT_NAMES = ['Reed Shallows', 'Lantern Bend', 'Heron Rock', 'The Deep Hush', 'Moss Cove', 'Quiet Eddy', 'Old Pier', 'Birch Point', 'Willow Drift', 'Cold Spring'];
+  var COND_LABEL = { calm: 'Still', wind: 'Breezy', current: 'Drifting', rain: 'Drizzle' };
+  var COND_TEXT = { calm: 'Still water. What moves, means something.', wind: 'A breeze: the float sometimes moves on its own.', current: 'A slow current carries the float along. Judge movement against the flow.', rain: 'Drizzle ripples the surface. Look for the stronger motions.' };
+
+  function dailySeed(d) { return String(d || new Date().toISOString().slice(0, 10)); }
+
+  function genLake(seed) {
+    var r = makeRng('lake:' + seed), i, tries = 0;
+    var condition = pick(r, CONDITIONS), name = pick(r, LAKE_A) + ' ' + pick(r, LAKE_B);
+    var names = shuffle(r, SPOT_NAMES), spots = [], ids = Object.keys(CREATURES);
+    while (spots.length < 5 && tries++ < 400) {
+      var ang = r() * Math.PI * 2, rad = range(r, 13, 35), x = Math.sin(ang) * rad, z = Math.cos(ang) * rad;
+      if (z < -30) continue; // keep the dock end clear
+      if (spots.some(function (s) { return Math.hypot(s.x - x, s.z - z) < 15; })) continue;
+      var fav = shuffle(r, ids).slice(0, 2);
+      spots.push({ id: 's' + spots.length, name: names[spots.length], x: x, z: z, fav: fav, junk: pick(r, ['boot', 'weed', 'snag']) });
+    }
+    return { seed: String(seed), name: name, condition: condition, spots: spots, start: { x: 0, z: -40, heading: 0 } };
+  }
+
+  // What lives under a float cast 'dist' metres from a spot's boat. Pure and seeded, so tests can check it.
+  function oddsFor(spot, dist) {
+    var z = zoneFor(dist), o = {}, k; for (k in ZONE_ODDS[z]) o[k] = ZONE_ODDS[z][k];
+    if (spot) { spot.fav.forEach(function (f) { if (o[f]) o[f] *= 2.2; }); o[spot.junk] = o.junk; }
+    delete o.junk; if (spot) o[spot.junk] = ZONE_ODDS[z].junk; else o.boot = ZONE_ODDS[z].junk;
+    return o;
+  }
+
+  function rollCast(r, spot, dist, condition) {
+    var enc = [], t = SETTLE + range(r, 4, 9), n = 1 + (r() < 0.3 ? 1 : 0) + (r() < 0.1 ? 1 : 0), i;
+    var odds = oddsFor(spot, dist);
+    for (i = 0; i < n; i++) {
+      var id = weightedPick(r, odds), e = build(id, t, r); enc.push(e);
+      t = e.end + range(r, 2.5, 5);
+      if (OBJECTS[id]) break;
+      var z = zoneFor(dist), deeper = z === 'near' ? 'mid' : 'far';
+      odds = oddsFor(spot, deeper === 'mid' ? 11 : 17); // a second visitor tends to come from deeper water
+    }
     var fake = [];
     if (condition === 'wind') {
-      var nf = 3 + Math.floor(r() * 3);
-      for (i = 0; i < nf; i++) {
-        var s = range(r, 2, 21), clash = encs.some(function (e) { return s > e.start - 1.2 && s < e.end + 1.2; });
+      var nf = 6 + Math.floor(r() * 3), j;
+      for (j = 0; j < nf; j++) {
+        var s = range(r, 2, 55), clash = enc.some(function (e) { return s > e.start - 1.2 && s < e.end + 1.2; });
         if (clash) continue;
-        var tp = [], tt = 0, n = 3 + Math.floor(r() * 4);
-        if (r() < 0.6) { for (var k = 0; k < n; k++) { tp.push(tt); tt += range(r, 0.25, 0.45); } fake.push({ type: 'taps', start: s, taps: tp, end: s + tt + 0.2 }); }
+        var tp = [], tt = 0, m = 3 + Math.floor(r() * 4);
+        if (r() < 0.6) { for (var k = 0; k < m; k++) { tp.push(tt); tt += range(r, 0.25, 0.45); } fake.push({ type: 'taps', start: s, taps: tp, end: s + tt + 0.2 }); }
         else fake.push({ type: 'drift', start: s, dir: r() < 0.5 ? -1 : 1, dd: range(r, 2, 3.5), end: s + 4.5 });
       }
     }
-    return { spec: spec, condition: condition, enc: encs, fake: fake, ph1: r() * 6.28, ph2: r() * 6.28, ph3: r() * 6.28, x0: condition === 'current' ? -0.55 : 0 };
+    return { spot: spot ? spot.id : null, dist: dist, zone: zoneFor(dist), condition: condition, enc: enc, fake: fake, ph1: r() * 6.28, ph2: r() * 6.28, ph3: r() * 6.28, x0: condition === 'current' ? -0.4 : 0 };
   }
 
   function floatAt(cast, t) {
-    var s = { x: 0, dip: 0, lift: 0, trem: 0 }, i, m;
-    var settle = t < SETTLE ? (1 - t / SETTLE) : 0; // plop: dips and rings out
+    var s = { x: 0, dip: 0, lift: 0, trem: 0 }, m;
+    var settle = t < SETTLE ? (1 - t / SETTLE) : 0; // splash-down: bobs and rings out
     s.dip += settle * settle * 0.5 * Math.sin(t * 9) * 0.6;
     cast.enc.forEach(function (e) { m = motion(e, t); s.x += m.x; s.dip += m.dip; s.lift += m.lift; s.trem += m.trem; });
     var c = cast.condition;
@@ -156,7 +193,7 @@
         else s.x += f.dir * 0.5 * smooth(tau / f.dd) * (tau > f.dd ? 1 - smooth((tau - f.dd) / 1.2) : 1);
       });
     } else if (c === 'current') {
-      s.x += cast.x0 + 0.045 * t;
+      s.x += cast.x0 + 0.03 * Math.min(t, 60);
     } else if (c === 'rain') {
       s.dip += 0.03 * (Math.sin(t * 17 + cast.ph1) + Math.sin(t * 11.3 + cast.ph2) + Math.sin(t * 6.1 + cast.ph3)) / 3 + 0.02 * Math.sin(t * 29 + cast.ph2);
       s.x += 0.02 * Math.sin(t * 3.3 + cast.ph3);
@@ -164,31 +201,7 @@
     return s;
   }
 
-  function dailySeed(d) { return String(d || new Date().toISOString().slice(0, 10)); }
-  var LAKE_A = ['Hollow', 'Quiet', 'Slate', 'Lantern', 'Ember', 'Mirror', 'Thistle', 'Cinder', 'Velvet', 'Marrow', 'Pale', 'Tallow'];
-  var LAKE_B = ['Mere', 'Tarn', 'Pool', 'Water', 'Reach', 'Basin', 'Broad', 'Lake'];
-
-  function genLake(seed) {
-    var r = makeRng('lake:' + seed);
-    var condition = pick(r, CONDITIONS);
-    var name = pick(r, LAKE_A) + ' ' + pick(r, LAKE_B);
-    var small = ['glimmerling', 'dawdler'], bigger = ['skimray', 'ribbonjaw', 'gulper', 'hollowking'], single = ['glimmerling', 'dawdler', 'skimray', 'ribbonjaw', 'gulper'];
-    var specs = [
-      { type: 'object', id: pick(r, ['boot', 'weed', 'snag']) },
-      { type: 'single', id: 'hollowking' },
-      { type: 'seq', ids: [pick(r, small), pick(r, ['skimray', 'ribbonjaw', 'gulper'])] },
-      { type: 'seq', ids: [pick(r, small), pick(r, bigger)] }
-    ];
-    while (specs.length < CASTS) specs.push({ type: 'single', id: pick(r, single) });
-    if (r() < 0.3) specs[specs.length - 1] = { type: 'object', id: pick(r, ['boot', 'weed', 'snag']) };
-    specs = shuffle(r, specs);
-    if (specs[0].id === 'hollowking') { var j = 1 + Math.floor(r() * (CASTS - 1)); var tmp = specs[0]; specs[0] = specs[j]; specs[j] = tmp; }
-    var casts = specs.map(function (sp, i) { return genCast(makeRng('cast:' + seed + ':' + i), sp, condition); });
-    return { seed: String(seed), name: name, condition: condition, casts: casts };
-  }
-
-  /* ---------- striking and scoring ---------- */
-  // outcome: early | late | landed | junk
+  // Strike at time t after the float landed. outcome: early | late | landed | junk. Nothing is scored; it only decides what you pull up.
   function resolveStrike(cast, t) {
     var enc = cast.enc, i, e;
     for (i = 0; i < enc.length; i++) {
@@ -202,41 +215,11 @@
     return { outcome: t < enc[0].start ? 'early' : 'late', enc: null, idx: -1 };
   }
 
-  function scoreCast(cast, strike, call) {
-    // strike: result of resolveStrike, or null when the player let the cast run out
-    var r = { points: 0, base: 0, mult: 1, patience: 0, bonus: 0, correct: false, notFishOk: false, outcome: strike ? strike.outcome : 'none', creature: null };
-    var hasFish = cast.enc.some(function (e) { return e.kind === 'fish'; });
-    if (!strike) {
-      if (!hasFish && call === 'notfish') { r.notFishOk = true; r.bonus = NOT_FISH_BONUS; r.points = NOT_FISH_BONUS; }
-      return r;
-    }
-    if (strike.outcome !== 'landed') return r;
-    var c = strike.enc; r.creature = c.id; r.base = BASE[c.size];
-    r.correct = call === c.size;
-    r.mult = r.correct ? CALL_MULT[c.size] : 1;
-    var passed = 0; for (var i = 0; i < strike.idx; i++) if (cast.enc[i].kind === 'fish' && RANK[cast.enc[i].size] < RANK[c.size]) passed++;
-    r.patience = passed * PATIENCE;
-    r.points = Math.round(r.base * r.mult) + r.patience;
-    return r;
-  }
-
-  // One character per cast for the share text; never names a creature.
-  function glyph(res) {
-    if (res.notFishOk) return 'N';
-    if (res.outcome === 'landed') return res.correct ? 'G' : 'Y';
-    if (res.outcome === 'junk') return 'J';
-    return 'X';
-  }
-  var EMOJI = { G: '🟩', Y: '🟨', J: '🟫', N: '🌙', X: '⬛' };
-  function shareText(seed, lake, results, total, daily) {
-    var row = results.map(function (r) { return EMOJI[glyph(r)]; }).join('');
-    return 'Night Float ' + (daily ? seed : 'practice') + ' · ' + lake.condition + '\n' + row + '\nScore ' + total;
-  }
+  function castEndsAt(cast) { return cast.enc[cast.enc.length - 1].end; }
 
   return {
-    CAST_SECS: CAST_SECS, CASTS: CASTS, SETTLE: SETTLE, SIZES: SIZES, RANK: RANK, BASE: BASE, CALL_MULT: CALL_MULT, PATIENCE: PATIENCE, NOT_FISH_BONUS: NOT_FISH_BONUS,
-    CREATURES: CREATURES, OBJECTS: OBJECTS, CONDITIONS: CONDITIONS, DUR: DUR,
-    makeRng: makeRng, dailySeed: dailySeed, genLake: genLake, genCast: genCast, floatAt: floatAt, motion: motion,
-    resolveStrike: resolveStrike, scoreCast: scoreCast, glyph: glyph, shareText: shareText
+    SETTLE: SETTLE, LAKE_R: LAKE_R, CAST_MIN: CAST_MIN, CAST_MAX: CAST_MAX, CREATURES: CREATURES, OBJECTS: OBJECTS, ZONES: ZONES, ZONE_ODDS: ZONE_ODDS, CONDITIONS: CONDITIONS, COND_LABEL: COND_LABEL, COND_TEXT: COND_TEXT,
+    makeRng: makeRng, dailySeed: dailySeed, genLake: genLake, oddsFor: oddsFor, zoneFor: zoneFor, rollCast: rollCast, floatAt: floatAt, motion: motion, build: build,
+    resolveStrike: resolveStrike, castEndsAt: castEndsAt
   };
 });

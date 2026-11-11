@@ -1,0 +1,37 @@
+'use strict';
+const assert = require('assert'), http = require('http'), WebSocket = require('ws');
+const { createApp } = require('../server'); const { memoryStore } = require('../lib/store');
+const ok = (m) => console.log('ok - ' + m);
+const wait = (f, ms = 3000) => new Promise((res, rej) => { const t0 = Date.now(); const i = setInterval(() => { const v = f(); if (v) { clearInterval(i); res(v); } else if (Date.now() - t0 > ms) { clearInterval(i); rej(new Error('timeout ' + f)); } }, 10); });
+(async () => {
+  const app = createApp(memoryStore(), { SESSION_SECRET: 's' }); const srv = http.createServer(app);
+  app.locals.world.handleUpgrade(srv); app.locals.nightfloat.handleUpgrade(srv); await new Promise((r) => srv.listen(0, r));
+  const url = 'ws://127.0.0.1:' + srv.address().port + '/nfws';
+  const open = (name) => new Promise((res) => { const ws = new WebSocket(url + '?name=' + name); const st = { ws, msgs: [] }; ws.on('message', (d) => st.msgs.push(JSON.parse(d))); ws.on('open', () => res(st)); });
+  const A = await open('Ann'), B = await open('Bo');
+  await wait(() => A.msgs.find((m) => m.t === 'init') && B.msgs.find((m) => m.t === 'init'));
+  const ia = A.msgs.find((m) => m.t === 'init'), ib = B.msgs.find((m) => m.t === 'init');
+  assert.equal(ia.room, ib.room); assert.match(ia.seed, /^\d{4}-\d\d-\d\d$/); assert.equal(ib.players.length, 2);
+  await wait(() => A.msgs.find((m) => m.t === 'join' && m.p.name === 'Bo'));
+  ok('guests join the same lake without an account');
+  B.ws.send(JSON.stringify({ t: 'pose', x: 5.5, z: -20, h: 1.2 }));
+  const s = await wait(() => A.msgs.find((m) => m.t === 's')); assert.deepEqual(s.p[0], [ib.you, 5.5, -20, 1.2]);
+  B.ws.send(JSON.stringify({ t: 'pose', x: 'zzz', z: 1e9, h: 0 })); B.ws.send('not json');
+  ok('boat positions are relayed, junk is ignored');
+  B.ws.send(JSON.stringify({ t: 'cast', c: { spot: 's2', dist: 12.5, ang: 0.3, seed: 12345, x: 3, z: 4 } }));
+  const c = await wait(() => A.msgs.find((m) => m.t === 'cast')); assert.equal(c.c.seed, 12345); assert.equal(c.id, ib.you);
+  B.ws.send(JSON.stringify({ t: 'cast', c: { spot: 'bad', dist: 99, ang: 0, seed: 1 } })); B.ws.send(JSON.stringify({ t: 'cast', c: { spot: 's1', dist: 99, ang: 0, seed: 1 } }));
+  await new Promise((r) => setTimeout(r, 150)); assert.equal(A.msgs.filter((m) => m.t === 'cast').length, 1);
+  ok('casts are relayed and validated');
+  B.ws.send(JSON.stringify({ t: 'catch', what: 'gulper' })); const k = await wait(() => A.msgs.find((m) => m.t === 'catch')); assert.equal(k.what, 'gulper');
+  B.ws.send(JSON.stringify({ t: 'catch', what: '<script>' })); await new Promise((r) => setTimeout(r, 1700)); assert.equal(A.msgs.filter((m) => m.t === 'catch').length, 1);
+  ok('catches are announced, unknown species rejected');
+  // full lake: the 9th player gets a second lake
+  const more = []; for (let i = 0; i < 7; i++) more.push(await open('P' + i)); const ninth = await open('Nine');
+  await wait(() => ninth.msgs.find((m) => m.t === 'init')); assert.ok(ninth.msgs.find((m) => m.t === 'init').room.endsWith('#2'));
+  ok('an eight-player lake overflows into a second lake');
+  B.ws.close(); const l = await wait(() => A.msgs.find((m) => m.t === 'leave')); assert.equal(l.id, ib.you);
+  ok('leaving is announced');
+  [A, ...more, ninth].forEach((x) => x.ws.terminate()); app.locals.nightfloat.close(); app.locals.world.close(); srv.close();
+  console.log('all passed'); process.exit(0);
+})().catch((e) => { console.error(e); process.exit(1); });
