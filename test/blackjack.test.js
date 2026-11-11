@@ -55,6 +55,31 @@ const wait = (f, ms = 4000) => new Promise((res, rej) => { const t0 = Date.now()
   await wait(() => last().ph === 'bet'); assert.equal(last().s[0].bet, 0); ok('table resets for the next hand');
   bj.handle(players.get('amy'), { a: 'bet', n: 5 }); await new Promise((r) => setTimeout(r, 50)); const b0 = bal.amy;
   bj.leave('amy'); await new Promise((r) => setTimeout(r, 50)); assert.equal(bal.amy, b0 + 5); assert.equal(last().s[0], null); ok('leaving before the deal refunds the bet');
-  bj.reset(); console.log('all passed');
+  bj.reset();
+
+  // ---- split: a stacked shoe gives the player 8+8, dealer 10+7 ----
+  const bal2 = { amy: 50 }, msgs2 = [], ib2 = {};
+  const amy2 = { ws: { readyState: 1, id: 'amy' }, p: { id: 'amy', name: 'amy', x: seats[0].x, z: seats[0].z } };
+  const order = [7, 9, 20, 6, 2, 12]; // p1, dealer up, p2, dealer hole, split hand 1 card, split hand 2 card
+  const bj2 = createBlackjack({
+    tables: () => [{ id: 't1', seats, dealer: L.bjDealer(tbl) }], players: new Map([['amy', amy2]]),
+    send: (ws, m) => { (ib2[ws.id] = ib2[ws.id] || []).push(m); }, broadcast: (m) => msgs2.push(m),
+    addCoins: async (id, n) => { bal2[id] = Math.round((bal2[id] + n) * 10) / 10; return bal2[id]; },
+    spendCoins: async (id, n) => { if (bal2[id] < n) return null; bal2[id] = Math.round((bal2[id] - n) * 10) / 10; return bal2[id]; },
+    newShoe: () => Array(40).fill(11).concat(order.slice().reverse()),
+  });
+  const last2 = () => msgs2.filter((m) => m.t === 'bj').pop().s;
+  bj2.handle(amy2, { a: 'join', id: 't1', i: 0 }); bj2.handle(amy2, { a: 'bet', n: 10 });
+  await wait(() => last2().ph === 'play' && last2().turn === 0);
+  assert.deepEqual(last2().s[0].h, [7, 20]); bj2.handle(amy2, { a: 'split' });
+  await wait(() => last2().s[0].sp);
+  let v = last2().s[0]; assert.deepEqual(v.h, [7, 2]); assert.deepEqual(v.sp.h, [20, 12]); assert.equal(bal2.amy, 30); assert.equal(last2().sub, 0);
+  ok('split makes two hands, each with the original bet');
+  bj2.handle(amy2, { a: 'stand' }); await wait(() => last2().sub === 1); bj2.handle(amy2, { a: 'stand' });
+  const r2 = await wait(() => { const q = last2(); return q.ph === 'result' && q; });
+  assert.equal(r2.s[0].res, 'lose'); assert.equal(r2.s[0].sp.res, 'win');
+  await new Promise((r) => setTimeout(r, 60)); assert.equal(bal2.amy, 50 - 20 + 20); ok('each split hand is settled on its own (11 loses, 18 beats 17)');
+  bj2.reset();
+  console.log('all passed');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

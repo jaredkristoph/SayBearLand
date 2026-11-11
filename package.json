@@ -1,8 +1,8 @@
 {
-  "name": "saybearland",
+  "name": "cyberland",
   "version": "0.1.0",
   "private": true,
-  "description": "SayBearLand: realtime 3D jelly office. Phase 1: accounts, roles, login.",
+  "description": "Cyberland: realtime 3D jelly office. Phase 1: accounts, roles, login.",
   "main": "server.js",
   "engines": {
     "node": ">=20"

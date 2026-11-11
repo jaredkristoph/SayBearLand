@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SayBearLand Admin</title>
+<title>Cyberland Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
@@ -45,7 +45,7 @@ code{color:var(--gold);font-size:18px;user-select:all}
 </style>
 </head>
 <body>
-<header><h1>SAYBEARLAND ADMIN</h1><span class="msg" id="msg" role="status"></span><a href="/office">Back to the office</a></header>
+<header><h1>CYBERLAND ADMIN</h1><span class="msg" id="msg" role="status"></span><a href="/office">Back to the office</a></header>
 <nav id="nav"></nav>
 
 <section id="tab-layout">
@@ -169,9 +169,9 @@ function layoutEditor(){
       var dl=el('button',{type:'button',className:'warn',textContent:'Delete'});dl.onclick=function(){if(!dl.dataset.sure){dl.dataset.sure=1;dl.textContent='Sure?';setTimeout(function(){delete dl.dataset.sure;dl.textContent='Delete'},3000);return}api('POST','admin/layouts/delete',{id:x.id}).then(function(j){showPresets(j.layouts)}).catch(fail)};
       row.appendChild(ld);row.appendChild(dl);box.appendChild(row)})}
   $('savePreset').onclick=function(){var n=$('presetName').value.trim();if(!n){say('Give the saved layout a name.',true);return}api('POST','admin/layouts',{name:n,layout:lay}).then(function(j){showPresets(j.layouts);$('presetName').value='';say('Saved a copy called "'+n+'".')}).catch(fail)};
-  $('dlLayout').onclick=function(){var a=el('a',{href:URL.createObjectURL(new Blob([JSON.stringify(lay)],{type:'application/json'})),download:'saybearland-layout.json'});document.body.appendChild(a);a.click();a.remove();say('Backup file downloaded.')};
+  $('dlLayout').onclick=function(){var a=el('a',{href:URL.createObjectURL(new Blob([JSON.stringify(lay)],{type:'application/json'})),download:'cyberland-layout.json'});document.body.appendChild(a);a.click();a.remove();say('Backup file downloaded.')};
   $('ulLayout').onclick=function(){$('ulFile').click()};
-  $('ulFile').onchange=function(){var f=this.files[0];if(!f)return;var r=new FileReader();r.onload=function(){try{var l=JSON.parse(r.result);if(!l||!Array.isArray(l.floor)||!Array.isArray(l.objects))throw 0;load(l);say('Loaded the file into the editor. Press Save layout to make it live.')}catch(e){say('That file is not a SayBearLand layout.',true)}};r.readAsText(f);this.value=''};
+  $('ulFile').onchange=function(){var f=this.files[0];if(!f)return;var r=new FileReader();r.onload=function(){try{var l=JSON.parse(r.result);if(!l||!Array.isArray(l.floor)||!Array.isArray(l.objects))throw 0;load(l);say('Loaded the file into the editor. Press Save layout to make it live.')}catch(e){say('That file is not a Cyberland layout.',true)}};r.readAsText(f);this.value=''};
   presets();
   $('saveLayout').onclick=function(){api('PUT','admin/layout',{layout:lay}).then(function(){say('Layout saved. Players are refreshing.');presets()}).catch(fail)};
   $('resetLayout').onclick=function(){if(!$('resetLayout').dataset.sure){$('resetLayout').dataset.sure=1;$('resetLayout').textContent='Click again to confirm';setTimeout(function(){delete $('resetLayout').dataset.sure;$('resetLayout').textContent='Reset to default'},3000);return}
