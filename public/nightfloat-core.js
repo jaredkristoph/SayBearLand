@@ -8,29 +8,52 @@
   var SETTLE = 1.4, LAKE_R = 50;
   var CONDITIONS = ['calm', 'wind', 'current', 'rain'];
 
-  // Six invented creatures and three non-fish objects. Nothing here has a size: what matters is how the float moves and how far out you cast.
-  var CREATURES = {
-    glimmerling: { id: 'glimmerling', name: 'Glimmerling', zone: 'near', sig: 'Quick shallow taps, then a small slow dip.', tip: 'Wait for the taps to stop.' },
-    dawdler: { id: 'dawdler', name: 'Dawdler', zone: 'near', sig: 'Slow sideways drift, no dip.', tip: 'Strike late, once the drift ends.' },
-    skimray: { id: 'skimray', name: 'Skimray', zone: 'mid', sig: 'The float rises and lies flat.', tip: 'Strike while it lies flat.' },
-    ribbonjaw: { id: 'ribbonjaw', name: 'Ribbonjaw', zone: 'mid', sig: 'Taps first, then a slow drift.', tip: 'Let the drift finish.' },
-    gulper: { id: 'gulper', name: 'Gulper', zone: 'far', sig: 'Quiet, then one hard plunge.', tip: 'About half a second to strike.' },
-    hollowking: { id: 'hollowking', name: 'Hollow King', zone: 'far', sig: 'Long trembling with no movement, then a huge plunge.', tip: 'The tremble means something big is near.' }
+  // Every creature belongs to one of six bite patterns (how the float behaves) and one habitat (where the float lands).
+  var PAT = {
+    glimmerling: { sig: 'Quick shallow taps, then a small slow dip.', tip: 'Wait for the taps to stop.' },
+    dawdler: { sig: 'Slow sideways drift, no dip.', tip: 'Strike late, once the drift ends.' },
+    skimray: { sig: 'The float rises and lies flat.', tip: 'Strike while it lies flat.' },
+    ribbonjaw: { sig: 'Taps first, then a slow drift.', tip: 'Let the drift finish.' },
+    gulper: { sig: 'Quiet, then one hard plunge.', tip: 'About half a second to strike.' },
+    hollowking: { sig: 'Long trembling with no movement, then a huge plunge.', tip: 'The tremble means something big is near.' }
   };
+  // id, name, bite pattern, habitat, how common (higher = more common)
+  var DEFS = [
+    ['glimmerling', 'Glimmerling', 'glimmerling', 'shallow', 10], ['dawdler', 'Dawdler', 'dawdler', 'shallow', 8], ['skimray', 'Skimray', 'skimray', 'mid', 6],
+    ['ribbonjaw', 'Ribbonjaw', 'ribbonjaw', 'mid', 6], ['gulper', 'Gulper', 'gulper', 'deep', 6], ['hollowking', 'Hollow King', 'hollowking', 'deep', 1],
+    // shallows
+    ['bluegill', 'Bluegill', 'glimmerling', 'shallow', 9], ['pumpkinseed', 'Pumpkinseed', 'glimmerling', 'shallow', 7], ['greensunfish', 'Green sunfish', 'glimmerling', 'shallow', 7],
+    ['roach', 'Roach', 'glimmerling', 'shallow', 9], ['rudd', 'Rudd', 'glimmerling', 'shallow', 6], ['stickleback', 'Stickleback', 'glimmerling', 'shallow', 8],
+    ['gudgeon', 'Gudgeon', 'dawdler', 'shallow', 7], ['fathead', 'Fathead minnow', 'glimmerling', 'shallow', 8], ['goldenshiner', 'Golden shiner', 'glimmerling', 'shallow', 6],
+    ['stoneloach', 'Stone loach', 'dawdler', 'shallow', 5], ['bitterling', 'Bitterling', 'glimmerling', 'shallow', 4], ['dace', 'Dace', 'glimmerling', 'shallow', 7],
+    ['bleak', 'Bleak', 'glimmerling', 'shallow', 8], ['whiteperch', 'White perch', 'glimmerling', 'shallow', 5], ['killifish', 'Banded killifish', 'glimmerling', 'shallow', 4],
+    ['goldfish', 'Goldfish', 'dawdler', 'shallow', 3], ['rockbass', 'Rock bass', 'ribbonjaw', 'shallow', 5], ['bullhead', 'Black bullhead', 'dawdler', 'shallow', 5],
+    // open water
+    ['perch', 'Yellow perch', 'ribbonjaw', 'mid', 9], ['blackcrappie', 'Black crappie', 'skimray', 'mid', 6], ['whitecrappie', 'White crappie', 'skimray', 'mid', 6],
+    ['bream', 'Bream', 'skimray', 'mid', 7], ['tench', 'Tench', 'dawdler', 'mid', 5], ['crucian', 'Crucian carp', 'glimmerling', 'mid', 6],
+    ['carp', 'Common carp', 'ribbonjaw', 'mid', 5], ['browntrout', 'Brown trout', 'gulper', 'mid', 4], ['rainbowtrout', 'Rainbow trout', 'gulper', 'mid', 5],
+    ['brooktrout', 'Brook trout', 'glimmerling', 'mid', 3], ['grayling', 'Grayling', 'skimray', 'mid', 3], ['chub', 'Chub', 'gulper', 'mid', 6],
+    ['ide', 'Ide', 'ribbonjaw', 'mid', 4], ['barbel', 'Barbel', 'dawdler', 'mid', 4], ['whitebass', 'White bass', 'gulper', 'mid', 4],
+    ['catfish', 'Channel catfish', 'dawdler', 'mid', 4], ['smallmouth', 'Smallmouth bass', 'gulper', 'mid', 4], ['grasscarp', 'Grass carp', 'dawdler', 'mid', 3],
+    // deep water
+    ['walleye', 'Walleye', 'ribbonjaw', 'deep', 6], ['sauger', 'Sauger', 'ribbonjaw', 'deep', 5], ['pike', 'Northern pike', 'gulper', 'deep', 5],
+    ['muskie', 'Muskellunge', 'hollowking', 'deep', 1.2], ['laketrout', 'Lake trout', 'gulper', 'deep', 4], ['salmon', 'Atlantic salmon', 'gulper', 'deep', 2.5],
+    ['sturgeon', 'Sturgeon', 'hollowking', 'deep', 1], ['burbot', 'Burbot', 'dawdler', 'deep', 4], ['zander', 'Zander', 'ribbonjaw', 'deep', 4],
+    ['wels', 'Wels catfish', 'hollowking', 'deep', 1], ['alligatorgar', 'Alligator gar', 'hollowking', 'deep', .8], ['longnosegar', 'Longnose gar', 'gulper', 'deep', 3],
+    ['bowfin', 'Bowfin', 'gulper', 'deep', 3], ['eel', 'European eel', 'dawdler', 'deep', 3]
+  ];
+  var CREATURES = {}, ORDER = [];
+  DEFS.forEach(function (d) { CREATURES[d[0]] = { id: d[0], name: d[1], pat: d[2], hab: d[3], w: d[4], sig: PAT[d[2]].sig, tip: PAT[d[2]].tip }; ORDER.push(d[0]); });
   var OBJECTS = {
     boot: { id: 'boot', name: 'Old boot', sig: 'Regular, rhythmic bob.' },
     weed: { id: 'weed', name: 'Tangle of weed', sig: 'Regular, quick bob.' },
     snag: { id: 'snag', name: 'Snag', sig: 'Regular, shallow bob, held low.' }
   };
-  var ZONES = { near: 'Short cast, shallows', mid: 'Medium cast', far: 'Long cast, deep water' };
-  // Odds of what is under the float, by how far you cast. "junk" is replaced by the spot's own object.
-  var ZONE_ODDS = {
-    near: { glimmerling: 38, dawdler: 34, skimray: 14, ribbonjaw: 4, gulper: 0, hollowking: 0, junk: 10 },
-    mid: { glimmerling: 8, dawdler: 10, skimray: 24, ribbonjaw: 28, gulper: 12, hollowking: 1, junk: 17 },
-    far: { glimmerling: 0, dawdler: 2, skimray: 8, ribbonjaw: 16, gulper: 34, hollowking: 12, junk: 28 }
-  };
+  var HABS = { shallow: 'Shallows', mid: 'Open water', deep: 'Deep water' };
   var CAST_MIN = 4, CAST_MAX = 20;
-  function zoneFor(d) { return d < 9 ? 'near' : d < 15 ? 'mid' : 'far'; }
+  // The lake has no marked spots: fish live where the water is deep, wherever your float lands.
+  function habitatAt(x, z) { var d = Math.hypot(x, z); return d > 36 ? 'shallow' : d > 20 ? 'mid' : 'deep'; }
+  function deeper(h) { return h === 'shallow' ? 'mid' : 'deep'; }
 
   function hashStr(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
   function makeRng(seed) {
@@ -45,34 +68,33 @@
   /* ---------- encounters ---------- */
   // Times inside an encounter are relative while it is built, then shifted to absolute cast time.
   function build(id, start, r) {
-    var dir = r() < 0.5 ? -1 : 1, e = { id: id, start: start, dir: dir, kind: 'fish' }, i, t;
+    var pat = CREATURES[id] ? CREATURES[id].pat : id, dir = r() < 0.5 ? -1 : 1, e = { id: id, pat: pat, start: start, dir: dir, kind: 'fish' }, i, t;
     if (OBJECTS[id]) {
       e.kind = 'object'; var dur = range(r, 8, 11);
       e.wS = start; e.wE = start + dur; e.end = start + dur;
       e.period = id === 'boot' ? 1.7 : id === 'weed' ? 1.1 : 2.3; e.amp = id === 'boot' ? 0.13 : id === 'weed' ? 0.08 : 0.05; e.held = id === 'snag' ? 0.2 : 0;
       return e;
     }
-        if (id === 'glimmerling') {
+        if (pat === 'glimmerling') {
       e.taps = []; t = range(r, 0.2, 0.5); var n = 8 + Math.floor(r() * 5);
       for (i = 0; i < n; i++) { e.taps.push(t); t += range(r, 0.22, 0.42); }
       e.wS = e.taps[n - 1] + 0.3; e.wE = e.wS + 1.0; e.end = e.wE + 0.4;
-    } else if (id === 'dawdler') {
+    } else if (pat === 'dawdler') {
       e.dd = range(r, 3.6, 5); e.dist = 0.9; e.wS = e.dd; e.wE = e.wS + 1.2; e.end = e.wE + 0.6;
-    } else if (id === 'skimray') {
+    } else if (pat === 'skimray') {
       e.wS = 0.7; e.wE = 2.2; e.end = 2.9;
-    } else if (id === 'ribbonjaw') {
+    } else if (pat === 'ribbonjaw') {
       e.taps = []; t = range(r, 0.2, 0.4); var m = 4 + Math.floor(r() * 2);
       for (i = 0; i < m; i++) { e.taps.push(t); t += range(r, 0.3, 0.5); }
       e.ds = t + 0.2; e.dd = range(r, 2.6, 3.4); e.dist = 0.6; e.wS = e.ds + e.dd; e.wE = e.wS + 1.1; e.end = e.wE + 0.5;
-    } else if (id === 'gulper') {
+    } else if (pat === 'gulper') {
       e.pt = range(r, 1.6, 2.8); e.wS = e.pt + 0.05; e.wE = e.pt + 0.55; e.end = e.pt + 0.95;
-    } else if (id === 'hollowking') {
+    } else if (pat === 'hollowking') {
       e.pt = range(r, 2.8, 4.2); e.wS = e.pt + 0.05; e.wE = e.pt + 0.5; e.end = e.pt + 0.95;
     }
     e.wS += start; e.wE += start; e.end += start;
     return e;
   }
-  var DUR = { glimmerling: 5.5, dawdler: 6.5, skimray: 3, ribbonjaw: 7.5, gulper: 4, hollowking: 5.5 };
 
   function tapPulse(tau, times, amp) {
     var d = 0;
@@ -92,7 +114,7 @@
       return o;
     }
     var wS = e.wS - e.start, wE = e.wE - e.start;
-    switch (e.id) {
+    switch (e.pat) {
       case 'glimmerling':
         o.dip = tapPulse(tau, e.taps, 0.22);
         if (tau >= wS - 0.05) o.dip += 0.3 * smooth((tau - wS) / 0.3) * (tau > wE - 0.3 ? 1 - smooth((tau - (wE - 0.3)) / 0.3) : 1);
@@ -126,43 +148,41 @@
   }
   var LAKE_A = ['Hollow', 'Quiet', 'Slate', 'Lantern', 'Ember', 'Mirror', 'Thistle', 'Cinder', 'Velvet', 'Marrow', 'Pale', 'Tallow'];
   var LAKE_B = ['Mere', 'Tarn', 'Pool', 'Water', 'Reach', 'Basin', 'Broad', 'Lake'];
-  var SPOT_NAMES = ['Reed Shallows', 'Lantern Bend', 'Heron Rock', 'The Deep Hush', 'Moss Cove', 'Quiet Eddy', 'Old Pier', 'Birch Point', 'Willow Drift', 'Cold Spring'];
   var COND_LABEL = { calm: 'Still', wind: 'Breezy', current: 'Drifting', rain: 'Drizzle' };
   var COND_TEXT = { calm: 'Still water. What moves, means something.', wind: 'A breeze: the float sometimes moves on its own.', current: 'A slow current carries the float along. Judge movement against the flow.', rain: 'Drizzle ripples the surface. Look for the stronger motions.' };
 
   function dailySeed(d) { return String(d || new Date().toISOString().slice(0, 10)); }
 
   function genLake(seed) {
-    var r = makeRng('lake:' + seed), i, tries = 0;
-    var condition = pick(r, CONDITIONS), name = pick(r, LAKE_A) + ' ' + pick(r, LAKE_B);
-    var names = shuffle(r, SPOT_NAMES), spots = [], ids = Object.keys(CREATURES);
-    while (spots.length < 5 && tries++ < 400) {
-      var ang = r() * Math.PI * 2, rad = range(r, 13, 35), x = Math.sin(ang) * rad, z = Math.cos(ang) * rad;
-      if (z < -30) continue; // keep the dock end clear
-      if (spots.some(function (s) { return Math.hypot(s.x - x, s.z - z) < 15; })) continue;
-      var fav = shuffle(r, ids).slice(0, 2);
-      spots.push({ id: 's' + spots.length, name: names[spots.length], x: x, z: z, fav: fav, junk: pick(r, ['boot', 'weed', 'snag']) });
-    }
-    return { seed: String(seed), name: name, condition: condition, spots: spots, start: { x: 0, z: -40, heading: 0 } };
+    var r = makeRng('lake:' + seed);
+    return { seed: String(seed), name: pick(r, LAKE_A) + ' ' + pick(r, LAKE_B), condition: pick(r, CONDITIONS), start: { x: 0, z: -40, heading: 0 } };
   }
 
-  // What lives under a float cast 'dist' metres from a spot's boat. Pure and seeded, so tests can check it.
-  function oddsFor(spot, dist) {
-    var z = zoneFor(dist), o = {}, k; for (k in ZONE_ODDS[z]) o[k] = ZONE_ODDS[z][k];
-    if (spot) { spot.fav.forEach(function (f) { if (o[f]) o[f] *= 2.2; }); o[spot.junk] = o.junk; }
-    delete o.junk; if (spot) o[spot.junk] = ZONE_ODDS[z].junk; else o.boot = ZONE_ODDS[z].junk;
+  // What can bite under a float that lands at (x, z). Pure and seeded, so tests can check it. Hidden "hot patches" make some corners of
+  // the lake better for a few kinds, but nothing is marked on the water.
+  function oddsHab(hab, x, z) {
+    var o = {}, tot = 0, id, c, w;
+    var cell = Math.floor(x / 9) + ',' + Math.floor(z / 9), pr = makeRng('patch:' + cell), pool = ORDER.filter(function (k) { return CREATURES[k].hab === hab; }), fav = shuffle(pr, pool).slice(0, 3);
+    for (var i = 0; i < ORDER.length; i++) {
+      id = ORDER[i]; c = CREATURES[id];
+      w = c.hab === hab ? c.w : (c.hab === 'shallow' && hab === 'mid') || (c.hab === 'mid' && (hab === 'shallow' || hab === 'deep')) || (c.hab === 'deep' && hab === 'mid') ? c.w * 0.12 : 0;
+      if (fav.indexOf(id) >= 0) w *= 3;
+      if (w > 0) { o[id] = w; tot += w; }
+    }
+    var junk = tot * (hab === 'shallow' ? 0.14 : hab === 'mid' ? 0.2 : 0.28) / 0.8;
+    o.boot = junk * (hab === 'shallow' ? 0.25 : 0.4); o.weed = junk * (hab === 'shallow' ? 0.55 : 0.25); o.snag = junk * (hab === 'shallow' ? 0.2 : 0.35);
     return o;
   }
+  function oddsFor(x, z) { return oddsHab(habitatAt(x, z), x, z); }
 
-  function rollCast(r, spot, dist, condition) {
-    var enc = [], t = SETTLE + range(r, 4, 9), n = 1 + (r() < 0.3 ? 1 : 0) + (r() < 0.1 ? 1 : 0), i;
-    var odds = oddsFor(spot, dist);
+  function rollCast(r, loc, dist, condition) {
+    var enc = [], t = SETTLE + range(r, 4, 9), n = 1 + (r() < 0.3 ? 1 : 0) + (r() < 0.1 ? 1 : 0), i, x = loc ? loc.x : 0, z = loc ? loc.z : -10;
+    var hab = habitatAt(x, z), odds = oddsHab(hab, x, z);
     for (i = 0; i < n; i++) {
       var id = weightedPick(r, odds), e = build(id, t, r); enc.push(e);
       t = e.end + range(r, 2.5, 5);
       if (OBJECTS[id]) break;
-      var z = zoneFor(dist), deeper = z === 'near' ? 'mid' : 'far';
-      odds = oddsFor(spot, deeper === 'mid' ? 11 : 17); // a second visitor tends to come from deeper water
+      odds = oddsHab(deeper(hab), x, z); // a second visitor tends to come from deeper water
     }
     var fake = [];
     if (condition === 'wind') {
@@ -175,7 +195,7 @@
         else fake.push({ type: 'drift', start: s, dir: r() < 0.5 ? -1 : 1, dd: range(r, 2, 3.5), end: s + 4.5 });
       }
     }
-    return { spot: spot ? spot.id : null, dist: dist, zone: zoneFor(dist), condition: condition, enc: enc, fake: fake, ph1: r() * 6.28, ph2: r() * 6.28, ph3: r() * 6.28, x0: condition === 'current' ? -0.4 : 0 };
+    return { dist: dist, hab: hab, condition: condition, enc: enc, fake: fake, ph1: r() * 6.28, ph2: r() * 6.28, ph3: r() * 6.28, x0: condition === 'current' ? -0.4 : 0 };
   }
 
   function floatAt(cast, t) {
@@ -218,8 +238,8 @@
   function castEndsAt(cast) { return cast.enc[cast.enc.length - 1].end; }
 
   return {
-    SETTLE: SETTLE, LAKE_R: LAKE_R, CAST_MIN: CAST_MIN, CAST_MAX: CAST_MAX, CREATURES: CREATURES, OBJECTS: OBJECTS, ZONES: ZONES, ZONE_ODDS: ZONE_ODDS, CONDITIONS: CONDITIONS, COND_LABEL: COND_LABEL, COND_TEXT: COND_TEXT,
-    makeRng: makeRng, dailySeed: dailySeed, genLake: genLake, oddsFor: oddsFor, zoneFor: zoneFor, rollCast: rollCast, floatAt: floatAt, motion: motion, build: build,
+    SETTLE: SETTLE, LAKE_R: LAKE_R, CAST_MIN: CAST_MIN, CAST_MAX: CAST_MAX, CREATURES: CREATURES, ORDER: ORDER, PAT: PAT, OBJECTS: OBJECTS, HABS: HABS, CONDITIONS: CONDITIONS, COND_LABEL: COND_LABEL, COND_TEXT: COND_TEXT,
+    makeRng: makeRng, dailySeed: dailySeed, genLake: genLake, oddsFor: oddsFor, habitatAt: habitatAt, rollCast: rollCast, floatAt: floatAt, motion: motion, build: build,
     resolveStrike: resolveStrike, castEndsAt: castEndsAt
   };
 });

@@ -15,15 +15,21 @@ const wait = (f, ms = 3000) => new Promise((res, rej) => { const t0 = Date.now()
   await wait(() => A.msgs.find((m) => m.t === 'join' && m.p.name === 'Bo'));
   ok('guests join the same lake without an account');
   B.ws.send(JSON.stringify({ t: 'pose', x: 5.5, z: -20, h: 1.2 }));
-  const s = await wait(() => A.msgs.find((m) => m.t === 's')); assert.deepEqual(s.p[0], [ib.you, 5.5, -20, 1.2]);
+  const s = await wait(() => A.msgs.find((m) => m.t === 's')); assert.deepEqual(s.p[0], [ib.you, 5.5, -20, 1.2, 0, 5.5, -20, 1.2, 0]);
   B.ws.send(JSON.stringify({ t: 'pose', x: 'zzz', z: 1e9, h: 0 })); B.ws.send('not json');
   ok('boat positions are relayed, junk is ignored');
-  B.ws.send(JSON.stringify({ t: 'cast', c: { spot: 's2', dist: 12.5, ang: 0.3, seed: 12345, x: 3, z: 4 } }));
+  B.ws.send(JSON.stringify({ t: 'pose', x: 5.5, z: -20, h: 1.2, m: 1, px: -14, pz: -64, ph: 2 }));
+  const w = await wait(() => A.msgs.find((m) => m.t === 's' && m.p[0][4] === 1)); assert.deepEqual(w.p[0], [ib.you, 5.5, -20, 1.2, 1, -14, -64, 2, 0]);
+  B.ws.send(JSON.stringify({ t: 'cast', c: { dist: 10, ang: 0, seed: 7, x: 0, z: 0 } })); await new Promise((r) => setTimeout(r, 120));
+  assert.equal(A.msgs.filter((m) => m.t === 'cast').length, 0, 'no casting while on foot');
+  B.ws.send(JSON.stringify({ t: 'pose', x: 5.5, z: -20, h: 1.2, m: 0 }));
+  ok('walking on the shore is relayed and blocks casting');
+  B.ws.send(JSON.stringify({ t: 'cast', c: { dist: 12.5, ang: 0.3, seed: 12345, x: 3, z: 4 } }));
   const c = await wait(() => A.msgs.find((m) => m.t === 'cast')); assert.equal(c.c.seed, 12345); assert.equal(c.id, ib.you);
-  B.ws.send(JSON.stringify({ t: 'cast', c: { spot: 'bad', dist: 99, ang: 0, seed: 1 } })); B.ws.send(JSON.stringify({ t: 'cast', c: { spot: 's1', dist: 99, ang: 0, seed: 1 } }));
+  B.ws.send(JSON.stringify({ t: 'cast', c: { dist: 'far', ang: 0, seed: 1 } }));
   await new Promise((r) => setTimeout(r, 150)); assert.equal(A.msgs.filter((m) => m.t === 'cast').length, 1);
   ok('casts are relayed and validated');
-  B.ws.send(JSON.stringify({ t: 'catch', what: 'gulper' })); const k = await wait(() => A.msgs.find((m) => m.t === 'catch')); assert.equal(k.what, 'gulper');
+  B.ws.send(JSON.stringify({ t: 'catch', what: 'walleye' })); const k = await wait(() => A.msgs.find((m) => m.t === 'catch')); assert.equal(k.what, 'walleye');
   B.ws.send(JSON.stringify({ t: 'catch', what: '<script>' })); await new Promise((r) => setTimeout(r, 1700)); assert.equal(A.msgs.filter((m) => m.t === 'catch').length, 1);
   ok('catches are announced, unknown species rejected');
   // full lake: the 9th player gets a second lake

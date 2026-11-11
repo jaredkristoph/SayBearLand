@@ -8,33 +8,28 @@ const a = NF.genLake('2026-11-11'), b = NF.genLake('2026-11-11'), c = NF.genLake
 assert.strictEqual(JSON.stringify(a), JSON.stringify(b)); assert.notStrictEqual(JSON.stringify(a), JSON.stringify(c));
 ok('daily lake is deterministic and changes each day');
 
-// every lake: five spots on the water, spread out, clear of the dock; no creature has a size
-for (let d = 1; d <= 80; d++) {
-  const L = NF.genLake('t' + d);
-  assert.equal(L.spots.length, 5); assert.ok(NF.CONDITIONS.includes(L.condition));
-  L.spots.forEach((s, i) => { assert.ok(Math.hypot(s.x, s.z) < NF.LAKE_R - 8, 'inside lake'); assert.ok(s.z > -30); assert.equal(s.fav.length, 2); L.spots.slice(i + 1).forEach((o) => assert.ok(Math.hypot(s.x - o.x, s.z - o.z) >= 15, 'spaced')); });
-}
-Object.values(NF.CREATURES).forEach((c) => { assert.ok(!('size' in c)); assert.ok(NF.ZONES[c.zone]); });
-ok('80 lakes: five spread-out spots on the water, creatures have no size');
+// the lake has a name and a condition, and no marked fishing spots
+for (let d = 1; d <= 80; d++) { const L = NF.genLake('t' + d); assert.ok(NF.CONDITIONS.includes(L.condition)); assert.ok(L.name); assert.ok(!('spots' in L)); }
+assert.equal(NF.ORDER.length, 56); assert.equal(new Set(NF.ORDER).size, 56);
+Object.values(NF.CREATURES).forEach((c) => { assert.ok(!('size' in c)); assert.ok(NF.HABS[c.hab]); assert.ok(NF.PAT[c.pat]); assert.ok(c.w > 0); });
+['shallow', 'mid', 'deep'].forEach((h) => assert.ok(Object.values(NF.CREATURES).filter((c) => c.hab === h).length >= 6));
+ok('no fishing spots; 56 creatures, each with a bite pattern and a habitat');
 
-// casting further reaches deeper water
-assert.equal(NF.zoneFor(5), 'near'); assert.equal(NF.zoneFor(12), 'mid'); assert.equal(NF.zoneFor(18), 'far');
-const tally = (dist) => { const t = {}; for (let i = 0; i < 4000; i++) { const cs = NF.rollCast(NF.makeRng('x' + dist + i), a.spots[0], dist, 'calm'); const id = cs.enc[0].id; t[id] = (t[id] || 0) + 1; } return t; };
-const near = tally(5), far = tally(19);
-assert.ok(!near.gulper && !near.hollowking, 'no deep creatures in the shallows');
-assert.ok((far.gulper || 0) > 600 && (far.hollowking || 0) > 100, 'deep creatures far out');
-assert.ok((far.glimmerling || 0) === 0 && (near.glimmerling || 0) > 800, 'shallow creatures stay close');
-ok('cast distance decides what can bite');
-
-// a spot favours its two creatures and holds its own junk
-const sp = { id: 's9', name: 'T', x: 0, z: 0, fav: ['skimray', 'dawdler'], junk: 'weed' };
-const o1 = NF.oddsFor(sp, 12), o2 = NF.oddsFor(null, 12);
-assert.ok(o1.skimray > o2.skimray * 2 && o1.weed > 0 && !o1.boot && !o1.junk);
-ok('spots favour two creatures and keep their own junk');
+// fishing anywhere: what bites depends on where the float lands
+assert.equal(NF.habitatAt(0, -45), 'shallow'); assert.equal(NF.habitatAt(0, -30), 'mid'); assert.equal(NF.habitatAt(2, 3), 'deep');
+const tally = (x, z) => { const t = {}; for (let i = 0; i < 4000; i++) { const cs = NF.rollCast(NF.makeRng('x' + x + z + i), { x, z }, 10, 'calm'); const id = cs.enc[0].id; t[id] = (t[id] || 0) + 1; } return t; };
+const near = tally(0, -45), far = tally(2, 3);
+assert.ok(!near.hollowking && !near.sturgeon && !near.wels, 'no giants in the shallows');
+assert.ok((far.walleye || 0) + (far.pike || 0) + (far.gulper || 0) > 300, 'big fish out in the deep');
+assert.ok((far.bluegill || 0) === 0 && (near.bluegill || 0) > 50, 'shallow fish stay in the shallows');
+const kinds = (t) => Object.keys(t).filter((k) => NF.CREATURES[k]).length; assert.ok(kinds(near) >= 18 && kinds(far) >= 10);
+const deepO = NF.oddsFor(2, 3); assert.ok(deepO.boot > 0 && deepO.weed > 0 && deepO.snag > 0);
+assert.deepEqual(NF.oddsFor(2, 3), NF.oddsFor(2, 3));
+ok('where the float lands decides what can bite');
 
 // casts: encounters in order, clear of each other, first bite after a calm wait
 for (let i = 0; i < 300; i++) {
-  const cs = NF.rollCast(NF.makeRng('c' + i), a.spots[i % 5], 4 + (i % 17), 'calm');
+  const cs = NF.rollCast(NF.makeRng('c' + i), { x: (i % 40) - 20, z: (i % 33) - 16 }, 4 + (i % 17), 'calm');
   assert.ok(cs.enc[0].start >= NF.SETTLE + 4 && cs.enc.length >= 1 && cs.enc.length <= 3);
   for (let k = 1; k < cs.enc.length; k++) assert.ok(cs.enc[k].start > cs.enc[k - 1].end);
   cs.enc.forEach((e) => assert.ok(e.wE >= e.wS && e.end >= e.wE));
