@@ -181,7 +181,7 @@ function createApp(store = createStore(), env = process.env) {
   const r1 = (n) => Math.round(n * 10) / 10;
   const addCoins = (username, n) => withLock(username, async () => { const u = await store.get(userKey(username)); if (!u) return null; u.coins = r1((u.coins || 0) + n); await store.set(userKey(username), u); return u.coins; });
   const spendCoins = (username, n) => withLock(username, async () => { const u = await store.get(userKey(username)); if (!u || (u.coins || 0) < n - 1e-9) return null; u.coins = r1((u.coins || 0) - n); await store.set(userKey(username), u); return u.coins; });
-  const world = createWorld({ authenticate, getLayout, getBots, store, canWear, addCoins, spendCoins, deskPaySecs: Number(env.DESK_PAY_SECS) || 30 });
+  const world = createWorld({ authenticate, getLayout, getBots, store, canWear, addCoins, spendCoins, deskPaySecs: Number(env.DESK_PAY_SECS) || 10 });
   app.locals.world = world;
 
 
