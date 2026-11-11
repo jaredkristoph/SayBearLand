@@ -30,11 +30,12 @@ function createApp(store = createStore(), env = process.env) {
     next();
   });
 
-  // Wardrobe: starter items are free, everything else only arrives by mail.
+  // Wardrobe: every costume and colour is unlocked for everyone.
   const CATALOG = {
-    costumes: ['none', 'bear', 'cat', 'duck', 'robot', 'crown'], colors: [0xff5d5d, 0xffb347, 0xffd166, 0x3ee6c4, 0x7aa2ff, 0xc9b6ff, 0xff7eb6],
-    starterCostumes: ['none', 'bear', 'cat', 'duck'], starterColors: [0xffb347, 0x3ee6c4, 0x7aa2ff, 0xff7eb6],
+    costumes: ['none', 'bear', 'cat', 'duck', 'robot', 'crown', 'cap', 'tophat', 'wizard', 'cowboy', 'chef', 'party', 'beanie', 'propeller', 'headphones', 'viking', 'halo'], colors: [0xff5d5d, 0xffb347, 0xffd166, 0x3ee6c4, 0x7aa2ff, 0xc9b6ff, 0xff7eb6],
+    starterCostumes: [], starterColors: [],
   };
+  CATALOG.starterCostumes = CATALOG.costumes.slice(); CATALOG.starterColors = CATALOG.colors.slice();
   const ITEM_LABELS = { 'costume:robot': 'Robot suit', 'costume:crown': 'Gold crown', 'color:ffd166': 'Gold body', 'color:c9b6ff': 'Lavender body', 'color:ff5d5d': 'Ruby body' };
   const owns = (u, costume, color) => {
     const c = CATALOG.starterCostumes.includes(costume) || (u.items || []).includes('costume:' + costume);
@@ -148,7 +149,7 @@ function createApp(store = createStore(), env = process.env) {
 
   // ---- shared content: layout, announcements, logo, bots ----
   const BOT_ROLES = ['CEO', 'Tester', 'CCO', 'Web Developer', 'Application Developer', 'Designer', 'HR', 'Support'];
-  const BOT_COSTUMES = ['bear', 'cat', 'duck', 'robot', 'crown', 'none'];
+  const BOT_COSTUMES = ['bear', 'cat', 'duck', 'robot', 'crown', 'none', 'cap', 'tophat', 'wizard', 'cowboy', 'chef', 'party', 'beanie', 'propeller', 'headphones', 'viking', 'halo'];
   const DEFAULT_BOTS = [
     { id: 'ceo', name: 'Boss Bot', role: 'CEO', costume: 'crown', color: 0xffd166, speed: 1.4 },
     { id: 'tess', name: 'Tess-Bot', role: 'Tester', costume: 'robot', color: 0xc9b6ff, speed: 1.6 },
@@ -244,9 +245,39 @@ function createApp(store = createStore(), env = process.env) {
   app.put('/api/admin/layout', wrap(requireUser), requireAdmin, wrap(async (req, res) => {
     const v = L.validate(req.body && req.body.layout);
     if (v.error) return res.status(400).json({ error: v.error });
+    // keep the version being replaced, so a bad save can always be undone
+    const presets = (await store.get('layouts')) || [], old = (await store.get('layout')) || L.defaultLayout();
+    const keep = presets.filter((x) => x.id !== 'prev'); keep.unshift({ id: 'prev', name: 'Before your last save (automatic)', savedAt: Date.now(), layout: old });
+    await store.set('layouts', keep.slice(0, 31));
     await store.set('layout', v.layout);
     await world.reload(); world.refreshClients();
     res.json({ layout: v.layout });
+  }));
+  // Saved layouts: named copies the admin can load back into the editor later.
+  const presetInfo = (x) => ({ id: x.id, name: x.name, savedAt: x.savedAt, w: x.layout.w, h: x.layout.h });
+  app.get('/api/admin/layouts', wrap(requireUser), requireAdmin, wrap(async (req, res) => res.json({ layouts: ((await store.get('layouts')) || []).map(presetInfo) })));
+  app.get('/api/admin/layouts/:id', wrap(requireUser), requireAdmin, wrap(async (req, res) => {
+    const x = ((await store.get('layouts')) || []).find((y) => y.id === req.params.id);
+    if (!x) return res.status(404).json({ error: 'Saved layout not found.' });
+    res.json({ layout: x.layout, name: x.name });
+  }));
+  app.post('/api/admin/layouts', wrap(requireUser), requireAdmin, wrap(async (req, res) => {
+    const name = String((req.body && req.body.name) || '').trim().slice(0, 40);
+    if (!name) return res.status(400).json({ error: 'Give the saved layout a name.' });
+    const v = L.validate(req.body && req.body.layout);
+    if (v.error) return res.status(400).json({ error: v.error });
+    let list = (await store.get('layouts')) || [];
+    const same = list.find((x) => x.name.toLowerCase() === name.toLowerCase() && x.id !== 'prev');
+    const entry = { id: same ? same.id : 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, savedAt: Date.now(), layout: v.layout };
+    list = same ? list.map((x) => (x === same ? entry : x)) : [...list, entry];
+    if (list.length > 31) return res.status(400).json({ error: 'You can keep up to 30 saved layouts. Delete one first.' });
+    await store.set('layouts', list);
+    res.json({ layouts: list.map(presetInfo) });
+  }));
+  app.post('/api/admin/layouts/delete', wrap(requireUser), requireAdmin, wrap(async (req, res) => {
+    const list = ((await store.get('layouts')) || []).filter((x) => x.id !== String((req.body && req.body.id) || ''));
+    await store.set('layouts', list);
+    res.json({ layouts: list.map(presetInfo) });
   }));
   app.post('/api/admin/layout/reset', wrap(requireUser), requireAdmin, wrap(async (req, res) => {
     await store.del('layout'); await world.reload(); world.refreshClients();
@@ -276,6 +307,10 @@ function createApp(store = createStore(), env = process.env) {
   }));
 
   app.get('/api/bots', wrap(requireUser), wrap(async (req, res) => res.json({ bots: await getBots(), roles: BOT_ROLES, costumes: BOT_COSTUMES })));
+  const cleanPost = (p) => {
+    if (!p || typeof p !== 'object' || !Number.isFinite(p.x) || !Number.isFinite(p.z)) return null;
+    return { x: Math.min(60, Math.max(0, Math.round(p.x * 100) / 100)), z: Math.min(40, Math.max(0, Math.round(p.z * 100) / 100)), r: Number.isFinite(p.r) ? Math.round(p.r * 100) / 100 : 0, seat: !!p.seat };
+  };
   app.put('/api/admin/bots', wrap(requireUser), requireAdmin, wrap(async (req, res) => {
     const bots = req.body && req.body.bots;
     if (!Array.isArray(bots) || bots.length > 12) return res.status(400).json({ error: 'Up to 12 bots.' });
@@ -285,7 +320,7 @@ function createApp(store = createStore(), env = process.env) {
       const name = String(b.name || '').trim().slice(0, 16);
       if (!name) return res.status(400).json({ error: 'Every bot needs a name.' });
       if (!BOT_ROLES.includes(b.role) || !BOT_COSTUMES.includes(b.costume) || !Number.isInteger(b.color) || b.color < 0 || b.color > 0xffffff) return res.status(400).json({ error: 'Invalid bot settings.' });
-      clean.push({ id: String(b.id || 'b' + i + Date.now().toString(36)).replace(/[^a-z0-9_]/gi, '').slice(0, 16) || 'b' + i, name, role: b.role, costume: b.costume, color: b.color, speed: Math.min(3, Math.max(0.5, Number(b.speed) || 1.5)) });
+      clean.push({ id: String(b.id || 'b' + i + Date.now().toString(36)).replace(/[^a-z0-9_]/gi, '').slice(0, 16) || 'b' + i, name, role: b.role, costume: b.costume, color: b.color, speed: Math.min(3, Math.max(0.5, Number(b.speed) || 1.5)), post: cleanPost(b.post) });
     }
     await store.set('bots', clean); await world.reload(); world.refreshClients();
     res.json({ bots: clean });

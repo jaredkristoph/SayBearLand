@@ -61,9 +61,14 @@ code{color:var(--gold);font-size:18px;user-select:all}
       <div><b>Map size</b><div class="row"><input id="mw" type="number" min="8" max="40" style="width:72px" aria-label="Width"> x <input id="mh" type="number" min="6" max="30" style="width:72px" aria-label="Height"><button id="resize" type="button">Apply</button></div></div>
       <div><b>Floor style</b><div class="palette" id="floors"></div></div>
       <div><b>Objects</b><div class="palette" id="types"></div></div>
-      <div id="selInfo" class="card" hidden><b id="selName"></b><div class="row"><button id="rot" type="button">Rotate (R)</button><button id="del" class="warn" type="button">Delete</button></div><small>Doors, windows, the logo and boards snap to the nearest outer wall by themselves. Drag them along the wall.</small></div>
+      <div id="selInfo" class="card" hidden><b id="selName"></b><div class="row"><button id="rot" type="button">Rotate (R)</button><button id="chairs" type="button" hidden>Add chairs around</button><button id="del" class="warn" type="button">Delete</button></div><div id="textRow" style="display:none;gap:6px"><input id="selText" maxlength="40" placeholder="Sign text" aria-label="Sign text"><div class="row" id="selColors"></div></div><small>Doors, windows, the logo, signs and decor snap to the nearest outer wall by themselves. Drag them along the wall.</small></div>
       <div class="row"><button id="fillAll" type="button">Fill whole map</button></div>
       <div class="row"><button class="go" id="saveLayout" type="button">Save layout</button><button id="resetLayout" class="warn" type="button">Reset to default</button></div>
+      <div class="card" id="presetBox"><b>Saved layouts</b><small>Keep named copies so you never lose a design. Loading one puts it in the editor; press Save layout to make it live.</small>
+        <div class="row"><input id="presetName" maxlength="40" placeholder="Name, e.g. Main office v1" aria-label="Saved layout name" style="flex:1;min-width:120px"><button class="go" id="savePreset" type="button">Save a copy</button></div>
+        <div id="presetList"></div>
+        <div class="row"><button id="dlLayout" type="button">Download backup file</button><button id="ulLayout" type="button">Load from file</button><input type="file" id="ulFile" accept="application/json,.json" hidden></div>
+      </div>
     </div>
   </div>
 </section>
@@ -103,7 +108,8 @@ function boot(){
 }
 
 /* ---------- layout editor ---------- */
-var COLORS={c:'#9d95e6',w:'#b9834a',g:'#8a90a8',r:'#ff7eb6',u:'#5d4fb3',' ':'#0b0a1c'},OBJ_COLOR={desk:'#f2e3c4',plant:'#3ddc84',sofa:'#ff9ccb',meetingTable:'#e9d3a3',glass:'#bfe9ff',board:'#ffd166',logo:'#3ee6c4',door:'#ff7eb6',window:'#88d4ff',screen:'#7aa2ff',divider:'#b9b0f0',stall:'#cfc8f5',toilet:'#ffffff',sink:'#e9e7f7',waterCooler:'#8fd3ff',fountain:'#5ec8ff',aquarium:'#6cb8ff',whiteboard:'#fafafa',doorway:'#ffb347'};
+var COLORS={c:'#9d95e6',w:'#b9834a',g:'#8a90a8',r:'#ff7eb6',u:'#5d4fb3',' ':'#0b0a1c'},OBJ_COLOR={desk:'#f2e3c4',plant:'#3ddc84',sofa:'#ff9ccb',meetingTable:'#e9d3a3',chair:'#7aa2ff',glass:'#bfe9ff',board:'#ffd166',logo:'#3ee6c4',door:'#ff7eb6',window:'#88d4ff',screen:'#7aa2ff',divider:'#b9b0f0',stall:'#cfc8f5',toilet:'#ffffff',sink:'#e9e7f7',waterCooler:'#8fd3ff',fountain:'#5ec8ff',aquarium:'#6cb8ff',whiteboard:'#fafafa',doorway:'#ffb347',clock:'#f5f3ff',poster:'#ff9ccb',frame:'#c79a5a',shelf:'#a97f45',lamp:'#ffe4a8',banner:'#ffd166',sign:'#6c5ce7',neon:'#ff4fd8'};
+var SIGN_COLORS=['#6c5ce7','#3ee6c4','#ff7eb6','#ffb347','#7aa2ff','#ff5d5d','#3ddc84','#ffd166'];
 var CELL=32;
 function layoutEditor(){
   var lay,cv=$('cv'),g=cv.getContext('2d'),tool='paint',floor='c',addType='desk',sel=null,drag=null,painting=false,last=null,rect=null;
@@ -131,14 +137,17 @@ function layoutEditor(){
     else if(tool==='rect'){rect={a:[Math.floor(p.x),Math.floor(p.z)],b:[Math.floor(p.x),Math.floor(p.z)]};draw()}
     else if(tool==='fill'){flood(Math.floor(p.x),Math.floor(p.z),floor);draw()}
     else if(tool==='select'){sel=hit(p);if(sel)drag={dx:sel.x-p.x,dz:sel.z-p.z};info();draw()}
-    else if(tool==='add'){var o={id:'o'+Date.now().toString(36),type:addType,x:Math.max(0,Math.min(lay.w,snap(p.x))),z:Math.max(0,Math.min(lay.h,snap(p.z))),rot:0};L.snapToWall(lay,o);lay.objects.push(o);sel=o;tool='select';tools();info();draw()}
+    else if(tool==='add'){var o={id:'o'+Date.now().toString(36),type:addType,x:Math.max(0,Math.min(lay.w,snap(p.x))),z:Math.max(0,Math.min(lay.h,snap(p.z))),rot:0};if(L.TYPES[o.type].text){o.text=o.type==='neon'?'OPEN':'New sign';o.color=o.type==='neon'?'#ff4fd8':'#6c5ce7'}L.snapToWall(lay,o);L.snapChair(lay,o);lay.objects.push(o);sel=o;tool='select';tools();info();draw()}
   });
   cv.addEventListener('pointermove',function(e){var p=cellOf(e);
     if(painting){line(last,[Math.floor(p.x),Math.floor(p.z)]);last=[Math.floor(p.x),Math.floor(p.z)];draw()}
     else if(rect){rect.b=[Math.max(0,Math.min(lay.w-1,Math.floor(p.x))),Math.max(0,Math.min(lay.h-1,Math.floor(p.z)))];draw()}
-    else if(drag&&sel){sel.x=Math.max(0,Math.min(lay.w,snap(p.x+drag.dx)));sel.z=Math.max(0,Math.min(lay.h,snap(p.z+drag.dz)));L.snapToWall(lay,sel);draw()}});
+    else if(drag&&sel){sel.x=Math.max(0,Math.min(lay.w,snap(p.x+drag.dx)));sel.z=Math.max(0,Math.min(lay.h,snap(p.z+drag.dz)));L.snapToWall(lay,sel);L.snapChair(lay,sel);draw()}});
   ['pointerup','pointercancel'].forEach(function(ev){cv.addEventListener(ev,function(){if(rect){var x0=Math.min(rect.a[0],rect.b[0]),x1=Math.max(rect.a[0],rect.b[0]),y0=Math.min(rect.a[1],rect.b[1]),y1=Math.max(rect.a[1],rect.b[1]);for(var j=y0;j<=y1;j++)for(var i=x0;i<=x1;i++)setCell(i,j,floor);rect=null;draw()}painting=false;drag=null;last=null})});
-  function info(){$('selInfo').hidden=!sel;if(sel)$('selName').textContent=L.TYPES[sel.type].label}
+  function info(){$('selInfo').hidden=!sel;if(sel){$('selName').textContent=L.TYPES[sel.type].label;$('chairs').hidden=sel.type!=='meetingTable';var tx=!!L.TYPES[sel.type].text;$('textRow').style.display=tx?'grid':'none';if(tx){$('selText').value=sel.text||'';paintColors()}}}
+  function paintColors(){var box=$('selColors');box.innerHTML='';SIGN_COLORS.forEach(function(c){var b=el('button',{type:'button',className:'sw',title:c});b.style.background=c;b.style.outline=(sel&&sel.color===c)?'3px solid #fff':'none';b.onclick=function(){if(sel){sel.color=c;paintColors();draw()}};box.appendChild(b)})}
+  $('selText').oninput=function(){if(sel&&L.TYPES[sel.type].text){sel.text=$('selText').value.slice(0,40);draw()}};
+  $('chairs').onclick=function(){if(!sel||sel.type!=='meetingTable')return;var base=lay.objects.length,list=L.chairsAround(sel,'c'+Date.now().toString(36));list.forEach(function(c){lay.objects.push(c)});say('Added '+list.length+' chairs around the table. Move any one to adjust.');draw()};
   function rotate(){if(sel){if(L.TYPES[sel.type].wall)return;sel.rot=(sel.rot+1)%4;draw()}}
   function del(){if(sel){lay.objects=lay.objects.filter(function(o){return o!==sel});sel=null;info();draw()}}
   $('zoom').oninput=function(){CELL=parseInt($('zoom').value,10);fit();draw()};
@@ -152,7 +161,19 @@ function layoutEditor(){
     var rows=[];for(var j=0;j<h;j++){var r=j<lay.h?lay.floor[j]:'';r=r.slice(0,w);while(r.length<w)r+='c';rows.push(r)}
     lay.floor=rows;lay.w=w;lay.h=h;lay.objects=lay.objects.filter(function(o){return o.x<=w&&o.z<=h});sel=null;fit();info();draw();
   };
-  $('saveLayout').onclick=function(){api('PUT','admin/layout',{layout:lay}).then(function(){say('Layout saved. Players are refreshing.')}).catch(fail)};
+  function presets(){api('GET','admin/layouts').then(function(j){showPresets(j.layouts)}).catch(fail)}
+  function showPresets(list){var box=$('presetList');box.innerHTML='';if(!list.length){box.appendChild(el('small',{textContent:'No saved copies yet.'}));return}
+    list.forEach(function(x){var row=el('div',{className:'row'});
+      row.appendChild(el('span',{textContent:x.name+' ('+x.w+'x'+x.h+', '+new Date(x.savedAt).toLocaleDateString()+')',style:'flex:1;min-width:120px'}));
+      var ld=el('button',{type:'button',textContent:'Load'});ld.onclick=function(){api('GET','admin/layouts/'+x.id).then(function(j){load(j.layout);say('Loaded "'+x.name+'" into the editor. Press Save layout to make it live.')}).catch(fail)};
+      var dl=el('button',{type:'button',className:'warn',textContent:'Delete'});dl.onclick=function(){if(!dl.dataset.sure){dl.dataset.sure=1;dl.textContent='Sure?';setTimeout(function(){delete dl.dataset.sure;dl.textContent='Delete'},3000);return}api('POST','admin/layouts/delete',{id:x.id}).then(function(j){showPresets(j.layouts)}).catch(fail)};
+      row.appendChild(ld);row.appendChild(dl);box.appendChild(row)})}
+  $('savePreset').onclick=function(){var n=$('presetName').value.trim();if(!n){say('Give the saved layout a name.',true);return}api('POST','admin/layouts',{name:n,layout:lay}).then(function(j){showPresets(j.layouts);$('presetName').value='';say('Saved a copy called "'+n+'".')}).catch(fail)};
+  $('dlLayout').onclick=function(){var a=el('a',{href:URL.createObjectURL(new Blob([JSON.stringify(lay)],{type:'application/json'})),download:'saybearland-layout.json'});document.body.appendChild(a);a.click();a.remove();say('Backup file downloaded.')};
+  $('ulLayout').onclick=function(){$('ulFile').click()};
+  $('ulFile').onchange=function(){var f=this.files[0];if(!f)return;var r=new FileReader();r.onload=function(){try{var l=JSON.parse(r.result);if(!l||!Array.isArray(l.floor)||!Array.isArray(l.objects))throw 0;load(l);say('Loaded the file into the editor. Press Save layout to make it live.')}catch(e){say('That file is not a SayBearLand layout.',true)}};r.readAsText(f);this.value=''};
+  presets();
+  $('saveLayout').onclick=function(){api('PUT','admin/layout',{layout:lay}).then(function(){say('Layout saved. Players are refreshing.');presets()}).catch(fail)};
   $('resetLayout').onclick=function(){if(!$('resetLayout').dataset.sure){$('resetLayout').dataset.sure=1;$('resetLayout').textContent='Click again to confirm';setTimeout(function(){delete $('resetLayout').dataset.sure;$('resetLayout').textContent='Reset to default'},3000);return}
     api('POST','admin/layout/reset',{}).then(function(j){load(j.layout);say('Layout reset.')}).catch(fail)};
 
@@ -167,7 +188,7 @@ function layoutEditor(){
       g.lineWidth=o===sel?4:2;g.strokeStyle=o===sel?'#fff':'#0b0a1c';g.strokeRect(-hw*CELL,-hd*CELL,hw*2*CELL,hd*2*CELL);
       g.fillStyle='#0b0a1c';g.beginPath();g.moveTo(-6,-hd*CELL-2);g.lineTo(6,-hd*CELL-2);g.lineTo(0,-hd*CELL-10);g.fill(); /* arrow = the back (wall side) */
       g.restore();
-      g.fillStyle='#0b0a1c';g.font='700 11px sans-serif';g.textAlign='center';g.fillText(o.type==='meetingTable'?'table':o.type,o.x*CELL,o.z*CELL+4);
+      g.fillStyle='#0b0a1c';g.font='700 11px sans-serif';g.textAlign='center';g.fillText(o.text?o.text.slice(0,14):(o.type==='meetingTable'?'table':o.type),o.x*CELL,o.z*CELL+4);
     });
     if(rect){var rx=Math.min(rect.a[0],rect.b[0]),rz=Math.min(rect.a[1],rect.b[1]),rw=Math.abs(rect.a[0]-rect.b[0])+1,rh=Math.abs(rect.a[1]-rect.b[1])+1;g.fillStyle=COLORS[floor];g.globalAlpha=.6;g.fillRect(rx*CELL,rz*CELL,rw*CELL,rh*CELL);g.globalAlpha=1;g.strokeStyle='#fff';g.lineWidth=3;g.setLineDash([6,4]);g.strokeRect(rx*CELL,rz*CELL,rw*CELL,rh*CELL);g.setLineDash([]);g.fillStyle='#fff';g.font='700 13px sans-serif';g.textAlign='left';g.fillText(rw+' x '+rh,rx*CELL+6,rz*CELL+18)}
   }
@@ -204,14 +225,20 @@ function logo(){
 
 /* ---------- bots ---------- */
 function bots(){
-  var list=[],roles=[],costumes=[];
-  api('GET','bots').then(function(j){list=j.bots;roles=j.roles;costumes=j.costumes;render()}).catch(fail);
+  var list=[],roles=[],costumes=[],furn=[];
+  Promise.all([api('GET','bots'),api('GET','layout')]).then(function(a){var j=a[0];list=j.bots;roles=j.roles;costumes=j.costumes;
+    furn=a[1].layout.objects.filter(function(o){var t=L.TYPES[o.type];return t&&!t.wall&&!t.pass&&o.type!=='plant'}).map(function(o,i){return {o:o,label:L.TYPES[o.type].label+' ('+o.x+', '+o.z+')'}});render()}).catch(fail);
   function hex(n){return '#'+n.toString(16).padStart(6,'0')}
   function render(){var box=$('botList');box.innerHTML='';list.forEach(function(b,i){
     var name=el('input',{value:b.name,maxLength:16,placeholder:'Name'}),role=el('select'),cos=el('select'),col=el('input',{type:'color',value:hex(b.color)}),sp=el('input',{type:'number',value:b.speed||1.5,min:.5,max:3,step:.1}),del=el('button',{type:'button',className:'warn',textContent:'Remove'});
     roles.forEach(function(r){role.appendChild(el('option',{value:r,textContent:r,selected:b.role===r}))});costumes.forEach(function(c){cos.appendChild(el('option',{value:c,textContent:c,selected:b.costume===c}))});
     name.oninput=function(){b.name=name.value};role.onchange=function(){b.role=role.value};cos.onchange=function(){b.costume=cos.value};col.oninput=function(){b.color=parseInt(col.value.slice(1),16)};sp.oninput=function(){b.speed=parseFloat(sp.value)||1.5};del.onclick=function(){list.splice(i,1);render()};
-    box.appendChild(el('div',{className:'card'},[name,el('div',{className:'grid2'},[role,cos]),el('div',{className:'row'},[el('span',{textContent:'Colour'}),col,el('span',{textContent:'Speed'}),sp,del])]))})}
+    var where=el('select');where.appendChild(el('option',{value:'roam',textContent:'Roams the office',selected:!b.post}));
+    furn.forEach(function(f,k){var P=L.postFor(f.o),on=b.post&&b.post.x===P.x&&b.post.z===P.z;where.appendChild(el('option',{value:'f'+k,textContent:(P.seat?'Sits at ':'Stands at ')+f.label,selected:!!on}))});
+    var cust=b.post&&!where.querySelector('option[selected]:not([value=roam])');
+    if(b.post&&!furn.some(function(f){var P=L.postFor(f.o);return P.x===b.post.x&&P.z===b.post.z}))where.appendChild(el('option',{value:'keep',textContent:'Stays at saved spot ('+b.post.x+', '+b.post.z+')',selected:true}));
+    where.onchange=function(){var v=where.value;if(v==='roam')delete b.post;else if(v[0]==='f')b.post=L.postFor(furn[+v.slice(1)].o)};
+    box.appendChild(el('div',{className:'card'},[name,el('div',{className:'grid2'},[role,cos]),el('div',{className:'row'},[el('span',{textContent:'Where'}),where]),el('div',{className:'row'},[el('span',{textContent:'Colour'}),col,el('span',{textContent:'Speed'}),sp,del])]))})}
   $('addBot').onclick=function(){if(list.length<12){list.push({name:'New Bot',role:'Tester',costume:'robot',color:0xc9b6ff,speed:1.5});render()}};
   $('saveBots').onclick=function(){api('PUT','admin/bots',{bots:list}).then(function(j){list=j.bots;render();say('Bots saved.')}).catch(fail)};
 }
