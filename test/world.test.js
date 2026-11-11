@@ -64,7 +64,7 @@ const ok = (n) => console.log(`ok - ${n}`);
   r = await api('POST', '/api/mail/send', { to: 'bob', subject: 'bad', attachment: { type: 'coins', amount: -5 } }, boss); assert.equal(r.status, 400);
   let inbox = (await api('GET', '/api/mail', null, bob)).json.mail; const gift = inbox.find((m) => m.subject === 'Gift'), bonus = inbox.find((m) => m.subject === 'Bonus');
   assert.equal(bonus.from, 'Boss Bot'); ok('admin sends coins and outfits, even as a bot');
-  r = await api('POST', '/api/avatar', { costume: 'robot', color: 0xff5d5d }, bob); assert.equal(r.status, 200); r = await api('POST', '/api/avatar', { costume: 'cat', color: 0x123456 }, bob); assert.equal(r.status, 403); ok('every catalog outfit is unlocked, unknown colours refused');
+  r = await api('POST', '/api/avatar', { costume: 'robot', color: 0xff5d5d }, bob); assert.equal(r.status, 200); r = await api('POST', '/api/avatar', { costume: 'cat', color: 0x123456 }, bob); assert.equal(r.status, 200); ok('every outfit unlocked, custom colours allowed');
   await api('POST', '/api/mail/claim', { id: gift.id }, bob); await api('POST', '/api/mail/claim', { id: bonus.id }, bob);
   r = await api('POST', '/api/avatar', { costume: 'robot', color: 0x7aa2ff }, bob); assert.equal(r.status, 200); r = await api('GET', '/api/me', null, bob); assert.equal(r.json.user.coins, 600); ok('claimed coins arrive');
   r = await api('POST', '/api/mail/delete', { id: (await api('GET', '/api/mail', null, bob)).json.mail.find((m) => m.subject === 'hi').id }, bob); assert.equal(r.status, 200);

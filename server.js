@@ -39,8 +39,7 @@ function createApp(store = createStore(), env = process.env) {
   const ITEM_LABELS = { 'costume:robot': 'Robot suit', 'costume:crown': 'Gold crown', 'color:ffd166': 'Gold body', 'color:c9b6ff': 'Lavender body', 'color:ff5d5d': 'Ruby body' };
   const owns = (u, costume, color) => {
     const c = CATALOG.starterCostumes.includes(costume) || (u.items || []).includes('costume:' + costume);
-    const k = CATALOG.starterColors.includes(color) || (u.items || []).includes('color:' + color.toString(16).padStart(6, '0'));
-    return c && k;
+    return c; // any colour is allowed (colour picker)
   };
   const wrap = (fn) => (req, res, next) => fn(req, res, next).catch(next);
   const userKey = (u) => `user:${u}`;
@@ -177,7 +176,7 @@ function createApp(store = createStore(), env = process.env) {
   };
   const canWear = async (username, costume, color) => { const u = await store.get(userKey(username)); return !!u && owns(u, costume, color); };
   const addCoins = async (username, n) => { const u = await store.get(userKey(username)); if (!u) return null; u.coins = (u.coins || 0) + n; await store.set(userKey(username), u); return u.coins; };
-  const world = createWorld({ authenticate, getLayout, getBots, store, canWear, addCoins, deskPaySecs: Number(env.DESK_PAY_SECS) || 60 });
+  const world = createWorld({ authenticate, getLayout, getBots, store, canWear, addCoins, deskPaySecs: Number(env.DESK_PAY_SECS) || 30 });
   app.locals.world = world;
 
 

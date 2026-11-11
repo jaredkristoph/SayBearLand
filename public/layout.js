@@ -15,7 +15,8 @@
     chair: { label: 'Chair (sit, snaps to tables)', hw: 0.3, hd: 0.3, chair: true },
     glass: { label: 'Glass wall', hw: 3.8, hd: 0.1, pass: true },
     divider: { label: 'Room divider', hw: 2, hd: 0.15 },
-    stall: { label: 'Toilet stall', hw: 1, hd: 1 },
+    stall: { label: 'Toilet stall', hw: 1, hd: 1, parts: [[-0.95, 0, 0.06, 1], [0.95, 0, 0.06, 1], [0, -0.95, 1, 0.06]] },
+    cubicle: { label: 'Cubicle panel', hw: 1, hd: 0.08 },
     toilet: { label: 'Toilet', hw: 0.45, hd: 0.5 },
     sink: { label: 'Sink + mirror', hw: 1, hd: 0.4 },
     waterCooler: { label: 'Water cooler', hw: 0.4, hd: 0.4 },
@@ -61,7 +62,7 @@
       // restroom (dividers form the room, gap on the right is the doorway)
       o('r1', 'divider', 4, 18.6), o('r2', 'divider', 8, 18.6), o('r3', 'divider', 11.2, 20.4, 1), o('r4', 'divider', 11.2, 26, 1), o('dw1', 'doorway', 11.2, 23.2, 1),
       o('s1', 'stall', 3.5, 20.6), o('s2', 'stall', 6, 20.6), o('s3', 'stall', 8.5, 20.6),
-      o('k1', 'sink', 4, 26.5, 2), o('k2', 'sink', 6.5, 26.5, 2),
+      o('cb1', 'cubicle', 4.2, 23.2), o('cb2', 'cubicle', 8.2, 23.2), o('k1', 'sink', 4, 26.5, 2), o('k2', 'sink', 6.5, 26.5, 2),
       // pantry and water things
       o('wc1', 'waterCooler', 30.5, 20), o('wc2', 'waterCooler', 32, 20), o('ft', 'fountain', 34, 23.5), o('aq', 'aquarium', 20, 19.6),
       // lounge
@@ -188,6 +189,11 @@
       var t = TYPES[o.type];
       if (t.wall || t.pass) return;
       var odd = o.rot % 2 === 1;
+      if (t.parts) {
+        var th = o.rot * Math.PI / 2, sn = Math.round(Math.sin(th)), cs = Math.round(Math.cos(th));
+        t.parts.forEach(function (q) { rects.push({ x: o.x + q[0] * cs + q[1] * sn, z: o.z - q[0] * sn + q[1] * cs, hw: odd ? q[3] : q[2], hd: odd ? q[2] : q[3] }); });
+        return;
+      }
       rects.push({ x: o.x, z: o.z, hw: odd ? t.hd : t.hw, hd: odd ? t.hw : t.hd });
     });
     return { w: l.w, h: l.h, ox: ox, oz: oz, floor: l.floor, objects: objects, rects: rects };
