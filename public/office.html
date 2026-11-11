@@ -80,7 +80,7 @@ button.chip:disabled{opacity:.45;cursor:not-allowed}
 <div id="stage"></div>
 <div class="hud" id="brand"><b>SAYBEARLAND</b><span id="online">connecting...</span></div>
 <div class="hud" id="wallet"><i id="coins">0 CC</i><button class="chip" id="mailBtn" type="button">Mail<span id="badge" hidden></span></button><a id="adminLink" href="/admin" hidden>Admin</a><button class="chip" id="out" type="button">Log out</button></div>
-<div class="hud" id="hint">Move: W A S D. Turn the camera: Q and E. Press F at a desk to sit, or at a board or whiteboard. V toggles first person. H swings a friendly hammer (you earn 0.1 CC for each workmate you whack). Sit at the blackjack table to play. Click the announcement board to read it. M for mail, Enter to chat.</div>
+<div class="hud" id="hint" hidden>Move: W A S D. Turn the camera: Q and E. Press F at a desk to sit, or at a board or whiteboard. V toggles first person. H swings a friendly hammer (you earn 0.1 CC for each workmate you whack). Sit at the blackjack table to play. Click the announcement board to read it. M for mail, Enter to chat.</div>
 <div class="hud" id="chat"><h2>TEAM CHAT</h2><div id="log" aria-live="polite"></div><input id="msg" maxlength="200" placeholder="Press Enter to chat" aria-label="Chat message" autocomplete="off"></div>
 <button class="hud chip" id="wearBtn" type="button" aria-expanded="false" aria-controls="wear">Outfit</button>
 <div class="hud" id="wear" role="group" aria-label="Costume and colour" hidden></div>
@@ -90,7 +90,7 @@ button.chip:disabled{opacity:.45;cursor:not-allowed}
   <div class="row" id="bjBet"><button class="chip" type="button" data-add="1">+1</button><button class="chip" type="button" data-add="5">+5</button><button class="chip" type="button" data-add="10">+10</button><button class="chip" type="button" data-add="25">+25</button><button class="chip" type="button" data-add="0">Clear</button></div>
   <div class="row" id="bjAct"><button class="chip go" type="button" data-a="hit">Hit</button><button class="chip red" type="button" data-a="stand">Stand</button><button class="chip" type="button" data-a="double" id="bjDbl">Double</button></div>
 </div>
-<div class="hud" id="cam" aria-label="Camera"><button class="chip" id="hitBtn" type="button" aria-label="Swing hammer">Hammer H</button><button class="chip" id="fpBtn" type="button" aria-pressed="false" aria-label="Toggle first person view">1st person V</button><button class="chip" id="qL" type="button" aria-label="Turn camera left">Q &#8634;</button><button class="chip" id="eR" type="button" aria-label="Turn camera right">&#8635; E</button></div>
+<div class="hud" id="cam" aria-label="Camera"><button class="chip" id="hitBtn" type="button" aria-label="Swing hammer">Hammer H</button><button class="chip" id="helpBtn" type="button" aria-pressed="false" aria-label="Show or hide controls help">?</button><button class="chip" id="fpBtn" type="button" aria-pressed="false" aria-label="Toggle first person view">1st person V</button><button class="chip" id="qL" type="button" aria-label="Turn camera left">Q &#8634;</button><button class="chip" id="eR" type="button" aria-label="Turn camera right">&#8635; E</button></div>
 <div class="hud" id="board" hidden role="dialog" aria-label="Announcements"><h2>ANNOUNCEMENTS</h2><div id="boardItems"></div><small>Press F or Esc to close.</small></div>
 <div class="hud" id="toast" hidden></div>
 <div class="hud" id="wb" hidden role="dialog" aria-label="Whiteboard"><div id="wbTools"></div><canvas id="wbCanvas" width="1000" height="600"></canvas></div>
@@ -679,7 +679,9 @@ var myId=ME.username;
 
 /* ---------- chat ---------- */
 var log=$('log'),msg=$('msg');
-function addChat(m){var d=document.createElement('div'),em=document.createElement('em');em.style.color=ROLE[m.role]||'#c9b6ff';em.textContent=m.name+': ';d.appendChild(em);d.appendChild(document.createTextNode(m.text));log.appendChild(d);while(log.children.length>20)log.removeChild(log.firstChild);log.scrollTop=log.scrollHeight}
+function addChat(m){if(m.at&&Date.now()-m.at>3600000)return;var d=document.createElement('div');d.dataset.at=m.at||Date.now(),em=document.createElement('em');em.style.color=ROLE[m.role]||'#c9b6ff';em.textContent=m.name+': ';d.appendChild(em);d.appendChild(document.createTextNode(m.text));log.appendChild(d);while(log.children.length>20)log.removeChild(log.firstChild);log.scrollTop=log.scrollHeight}
+setInterval(function(){var cut=Date.now()-3600000;[].slice.call(log.children).forEach(function(d){if(+d.dataset.at<cut)log.removeChild(d)})},30000);
+$('helpBtn').addEventListener('click',function(){var h=$('hint');h.hidden=!h.hidden;this.setAttribute('aria-pressed',h.hidden?'false':'true');this.blur()});
 function toast(t){var e=$('toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){e.hidden=true},2500)}
 msg.addEventListener('focus',function(){typing=true;for(var k in keys)keys[k]=0});msg.addEventListener('blur',function(){typing=false});
 msg.addEventListener('keydown',function(e){e.stopPropagation();if(e.key==='Enter'){var t=msg.value.trim();if(t&&ws&&ws.readyState===1)ws.send(JSON.stringify({t:'chat',text:t}));msg.value='';msg.blur()}else if(e.key==='Escape')msg.blur()});
