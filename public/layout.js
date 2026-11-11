@@ -28,6 +28,7 @@
     doorway: { label: 'Door (walk-through)', hw: 0.9, hd: 0.15, pass: true },
     window: { label: 'Window', wall: true },
     screen: { label: 'Wall screen', wall: true },
+    moneyboard: { label: 'Coin leaderboard (wall)', wall: true },
     clock: { label: 'Wall clock', wall: true },
     poster: { label: 'Poster', wall: true },
     frame: { label: 'Picture frame', wall: true },
@@ -53,7 +54,7 @@
       o('d1', 'desk', 6, 6.5), o('d2', 'desk', 11, 6.5), o('d3', 'desk', 16, 6.5), o('d4', 'desk', 21, 6.5),
       o('d5', 'desk', 6, 12.5), o('d6', 'desk', 11, 12.5), o('d7', 'desk', 16, 12.5), o('d8', 'desk', 21, 12.5),
       // meeting room
-      o('mt', 'meetingTable', 33, 5.5), o('ck', 'clock', 11, 0.5), o('sg1', 'sign', 29.5, 0.5, 0, 'MEETING ROOM', '#5d4fb3'), o('nn1', 'neon', 37.5, 0.5, 0, 'SAYBEARLAND', '#ff4fd8'), o('ps1', 'poster', 0.5, 6, 1), o('fr1', 'frame', 0.5, 11, 1), o('sh1', 'shelf', 0.5, 15, 1), o('sg2', 'sign', 0.5, 22, 1, 'RESTROOM', '#3ee6c4'), o('lp1', 'lamp', 5, 0.5), o('bn1', 'banner', 17, 27.5, 2), o('mc1', 'chair', 31.5, 3.88, 0), o('mc2', 'chair', 33, 3.88, 0), o('mc3', 'chair', 34.5, 3.88, 0), o('mc4', 'chair', 31.5, 7.12, 2), o('mc5', 'chair', 33, 7.12, 2), o('mc6', 'chair', 34.5, 7.12, 2), o('mc7', 'chair', 30.18, 5.5, 1), o('mc8', 'chair', 35.82, 5.5, 3), o('gl', 'glass', 33, 9.8), o('sc', 'screen', 33, 0.5), o('wb2', 'whiteboard', 39.5, 5.5, 3),
+      o('mt', 'meetingTable', 33, 5.5), o('ck', 'clock', 11, 0.5), o('mb', 'moneyboard', 0.5, 3, 1), o('sg1', 'sign', 29.5, 0.5, 0, 'MEETING ROOM', '#5d4fb3'), o('nn1', 'neon', 37.5, 0.5, 0, 'SAYBEARLAND', '#ff4fd8'), o('ps1', 'poster', 0.5, 6, 1), o('fr1', 'frame', 0.5, 11, 1), o('sh1', 'shelf', 0.5, 15, 1), o('sg2', 'sign', 0.5, 22, 1, 'RESTROOM', '#3ee6c4'), o('lp1', 'lamp', 5, 0.5), o('bn1', 'banner', 17, 27.5, 2), o('mc1', 'chair', 31.5, 3.88, 0), o('mc2', 'chair', 33, 3.88, 0), o('mc3', 'chair', 34.5, 3.88, 0), o('mc4', 'chair', 31.5, 7.12, 2), o('mc5', 'chair', 33, 7.12, 2), o('mc6', 'chair', 34.5, 7.12, 2), o('mc7', 'chair', 30.18, 5.5, 1), o('mc8', 'chair', 35.82, 5.5, 3), o('gl', 'glass', 33, 9.8), o('sc', 'screen', 33, 0.5), o('wb2', 'whiteboard', 39.5, 5.5, 3),
       // walls decor
       o('bd', 'board', 14, 0.5), o('lg', 'logo', 8, 0.5), o('dr', 'door', 22, 0.5), o('w1', 'window', 3, 0.5), o('w2', 'window', 18, 0.5), o('w3', 'window', 26, 0.5),
       o('wb1', 'whiteboard', 39.5, 14.5, 3),
@@ -167,6 +168,12 @@
     return out;
   }
 
+  // Sitting on a toilet: the sitter faces the way the toilet faces, camera and exit are in front.
+  function toiletSeat(o, lz) {
+    var th = o.rot * Math.PI / 2;
+    return { x: o.x + Math.sin(th) * lz, z: o.z + Math.cos(th) * lz, face: th, theta: th };
+  }
+
   // Seat for a loose chair: the sitter faces the way the chair faces.
   function chairSeat(o) {
     var th = o.rot * Math.PI / 2;
@@ -205,7 +212,7 @@
   // Where the desk's chair stands (world coords) and the way a sitter faces.
   function seatFor(o) {
     var th = o.rot * Math.PI / 2, c = Math.cos(th), s = Math.sin(th);
-    var lx = -0.4, lz = 1.15; // local seat offset
+    var lx = -0.4, lz = 1.75; // local seat offset (centre of the chair cushion)
     return { x: o.x + lx * c + lz * s, z: o.z - lx * s + lz * c, face: th + Math.PI, theta: th };
   }
 
@@ -255,5 +262,5 @@
     return { x: Math.round(st.x * 100) / 100, z: Math.round(st.z * 100) / 100, r: Math.round(st.face * 100) / 100, seat: o.type === 'desk' };
   }
 
-  return { FLOORS: FLOORS, TYPES: TYPES, LIMITS: LIMITS, defaultLayout: defaultLayout, validate: validate, snapToWall: snapToWall, snapChair: snapChair, chairsAround: chairsAround, chairSeat: chairSeat, toWorld: toWorld, floorAt: floorAt, blocked: blocked, seatFor: seatFor, spawn: spawn, randomSpot: randomSpot, postFor: postFor, entrance: entrance, clear: clear };
+  return { FLOORS: FLOORS, TYPES: TYPES, LIMITS: LIMITS, defaultLayout: defaultLayout, validate: validate, snapToWall: snapToWall, snapChair: snapChair, chairsAround: chairsAround, chairSeat: chairSeat, toiletSeat: toiletSeat, toWorld: toWorld, floorAt: floorAt, blocked: blocked, seatFor: seatFor, spawn: spawn, randomSpot: randomSpot, postFor: postFor, entrance: entrance, clear: clear };
 });

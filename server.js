@@ -86,7 +86,7 @@ function createApp(store = createStore(), env = process.env) {
     const password = A.generatePassword();
     const user = {
       username, name, role, admin: ADMINS.includes(username), mustChange: true,
-      costume: 'bear', color: 0x7aa2ff, coins: 0, items: [], passwordHash: A.hashPassword(password), createdAt: Date.now(),
+      costume: 'none', color: 0x7aa2ff, coins: 0, items: [], passwordHash: A.hashPassword(password), createdAt: Date.now(),
     };
     const ok = await store.set(userKey(username), user, { nx: true });
     if (!ok) return res.status(409).json({ error: 'That username is taken.' });
@@ -137,6 +137,17 @@ function createApp(store = createStore(), env = process.env) {
     res.json({ users });
   }));
 
+  let boardCache = { at: 0, top: [] };
+  app.get('/api/leaderboard', wrap(requireUser), wrap(async (req, res) => {
+    if (Date.now() - boardCache.at > 8000) {
+      const names = await store.smembers('users');
+      const us = (await Promise.all(names.map((n) => store.get(userKey(n))))).filter(Boolean);
+      us.sort((a, b) => (b.coins || 0) - (a.coins || 0));
+      boardCache = { at: Date.now(), top: us.slice(0, 6).map((u) => ({ name: u.name, coins: u.coins || 0 })) };
+    }
+    res.json({ top: boardCache.top });
+  }));
+
   app.post('/api/admin/reset-password', wrap(requireUser), requireAdmin, wrap(async (req, res) => {
     const target = await store.get(userKey(String(req.body.username || '').toLowerCase()));
     if (!target) return res.status(404).json({ error: 'No such user.' });
@@ -165,7 +176,8 @@ function createApp(store = createStore(), env = process.env) {
     return p ? store.get(userKey(p.u)) : null;
   };
   const canWear = async (username, costume, color) => { const u = await store.get(userKey(username)); return !!u && owns(u, costume, color); };
-  const world = createWorld({ authenticate, getLayout, getBots, store, canWear });
+  const addCoins = async (username, n) => { const u = await store.get(userKey(username)); if (!u) return null; u.coins = (u.coins || 0) + n; await store.set(userKey(username), u); return u.coins; };
+  const world = createWorld({ authenticate, getLayout, getBots, store, canWear, addCoins, deskPaySecs: Number(env.DESK_PAY_SECS) || 60 });
   app.locals.world = world;
 
 

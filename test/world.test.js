@@ -8,7 +8,7 @@ const L = require('../public/layout.js');
 
 const ok = (n) => console.log(`ok - ${n}`);
 (async () => {
-  const app = createApp(memoryStore(), { SESSION_SECRET: 's', ADMIN_USERNAMES: 'boss' });
+  const app = createApp(memoryStore(), { SESSION_SECRET: 's', ADMIN_USERNAMES: 'boss', DESK_PAY_SECS: '1' });
   const server = http.createServer(app); app.locals.world.handleUpgrade(server);
   await new Promise((r) => server.listen(0, r));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -117,6 +117,16 @@ const ok = (n) => console.log(`ok - ${n}`);
   r = await api('GET', '/api/whiteboards', null, bob); assert.equal(r.json.boards[wbId].length, 1); ok('whiteboard strokes sync, persist and are validated');
   A.ws.send(JSON.stringify({ t: 'wbclear', id: wbId })); await wait(() => B.msgs.find((m) => m.t === 'wbclear'));
   r = await api('GET', '/api/whiteboards', null, bob); assert.equal(r.json.boards[wbId].length, 0); ok('whiteboard clear');
+  { // sitting at a desk pays 1 CC per period
+    const lay2 = (await api('GET', '/api/layout', null, amy)).json.layout, wl = L.toWorld(lay2), desk = wl.objects.find((o) => o.type === 'desk'), seat = L.seatFor(desk);
+    const cur = B.msgs.filter((m) => m.t === 'state').pop().p.find((p) => p.id === 'amy'); let px = cur.x, pz = cur.z;
+    const steps = Math.ceil(Math.hypot(seat.x - px, seat.z - pz) / 4);
+    for (let i = 1; i <= steps; i++) { px = cur.x + (seat.x - cur.x) * i / steps; pz = cur.z + (seat.z - cur.z) * i / steps; A.ws.send(JSON.stringify({ t: 'pose', x: px, z: pz, r: 0, seat: 0 })); await new Promise((r) => setTimeout(r, 120)); }
+    const before = (await api('GET', '/api/me', null, amy)).json.user.coins;
+    A.ws.send(JSON.stringify({ t: 'pose', x: seat.x, z: seat.z, r: 0, seat: 1 }));
+    const cm = await wait(() => A.msgs.find((m) => m.t === 'coins'), 4000); assert.equal(cm.coins, before + 1);
+    assert.equal((await api('GET', '/api/me', null, amy)).json.user.coins, before + 1); ok('desk sitting earns coins');
+  }
   A.ws.close(); await wait(() => B.msgs.find((m) => m.t === 'leave' && m.id === 'amy')); ok('leave broadcast');
   const A2 = await open(bob); await wait(() => B.ws.readyState === 3); ok('second login replaces the first');
   A2.ws.close(); app.locals.world.close(); server.close(); console.log('all passed');
