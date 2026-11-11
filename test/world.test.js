@@ -124,7 +124,7 @@ const ok = (n) => console.log(`ok - ${n}`);
     for (let i = 1; i <= steps; i++) { px = cur.x + (seat.x - cur.x) * i / steps; pz = cur.z + (seat.z - cur.z) * i / steps; A.ws.send(JSON.stringify({ t: 'pose', x: px, z: pz, r: 0, seat: 0 })); await new Promise((r) => setTimeout(r, 120)); }
     const before = (await api('GET', '/api/me', null, amy)).json.user.coins;
     A.ws.send(JSON.stringify({ t: 'pose', x: seat.x, z: seat.z, r: 0, seat: 1 }));
-    const cm = await wait(() => A.msgs.find((m) => m.t === 'coins'), 4000); assert.equal(cm.coins, before + 1);
+    const cm = await wait(() => A.msgs.find((m) => m.t === 'coins' && m.earned), 4000); assert.equal(cm.coins, before + 1);
     assert.equal((await api('GET', '/api/me', null, amy)).json.user.coins, before + 1); ok('desk sitting earns coins');
   }
   A.ws.close(); await wait(() => B.msgs.find((m) => m.t === 'leave' && m.id === 'amy')); ok('leave broadcast');

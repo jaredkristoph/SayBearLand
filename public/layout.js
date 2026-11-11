@@ -16,6 +16,7 @@
     glass: { label: 'Glass wall', hw: 3.8, hd: 0.1, pass: true },
     divider: { label: 'Room divider', hw: 2, hd: 0.15 },
     stall: { label: 'Toilet stall', hw: 1, hd: 1, parts: [[-0.95, 0, 0.06, 1], [0.95, 0, 0.06, 1], [0, -0.95, 1, 0.06]] },
+    blackjack: { label: 'Blackjack table (4 players + dealer)', hw: 2.3, hd: 1.15 },
     cubicle: { label: 'Cubicle panel', hw: 1, hd: 0.08 },
     toilet: { label: 'Toilet', hw: 0.45, hd: 0.5 },
     sink: { label: 'Sink + mirror', hw: 1, hd: 0.4 },
@@ -67,6 +68,8 @@
       o('wc1', 'waterCooler', 30.5, 20), o('wc2', 'waterCooler', 32, 20), o('ft', 'fountain', 34, 23.5), o('aq', 'aquarium', 20, 19.6),
       // lounge
       o('sf', 'sofa', 20, 24.6),
+      // casino corner
+      o('bj1', 'blackjack', 32, 14.5),
       // plants
       o('p1', 'plant', 1, 1), o('p2', 'plant', 39, 1), o('p3', 'plant', 1, 27), o('p4', 'plant', 39, 27), o('p5', 'plant', 14.5, 24), o('p6', 'plant', 25.5, 24), o('p7', 'plant', 27, 17), o('p8', 'plant', 13, 17),
     ];
@@ -181,6 +184,18 @@
     return { x: o.x, z: o.z, face: th, theta: th + Math.PI };
   }
 
+  // Blackjack table: four player seats along the front (+z), the AI dealer stands behind (-z).
+  var BJ_X = [-1.5, -0.5, 0.5, 1.5];
+  function bjLocal(o, lx, lz) {
+    var th = o.rot * Math.PI / 2, c = Math.cos(th), s = Math.sin(th);
+    return { x: o.x + lx * c + lz * s, z: o.z - lx * s + lz * c };
+  }
+  function bjSeats(o) {
+    var th = o.rot * Math.PI / 2;
+    return BJ_X.map(function (lx) { var q = bjLocal(o, lx, 1.75); return { x: q.x, z: q.z, face: th + Math.PI, theta: th }; });
+  }
+  function bjDealer(o) { var q = bjLocal(o, 0, -1.7); return { x: q.x, z: q.z, r: o.rot * Math.PI / 2 }; }
+
   function toWorld(l) {
     var ox = l.w / 2, oz = l.h / 2;
     var objects = l.objects.map(function (o) { return { id: o.id, type: o.type, rot: o.rot, x: o.x - ox, z: o.z - oz, text: o.text, color: o.color }; });
@@ -268,5 +283,5 @@
     return { x: Math.round(st.x * 100) / 100, z: Math.round(st.z * 100) / 100, r: Math.round(st.face * 100) / 100, seat: o.type === 'desk' };
   }
 
-  return { FLOORS: FLOORS, TYPES: TYPES, LIMITS: LIMITS, defaultLayout: defaultLayout, validate: validate, snapToWall: snapToWall, snapChair: snapChair, chairsAround: chairsAround, chairSeat: chairSeat, toiletSeat: toiletSeat, toWorld: toWorld, floorAt: floorAt, blocked: blocked, seatFor: seatFor, spawn: spawn, randomSpot: randomSpot, postFor: postFor, entrance: entrance, clear: clear };
+  return { FLOORS: FLOORS, TYPES: TYPES, LIMITS: LIMITS, defaultLayout: defaultLayout, validate: validate, snapToWall: snapToWall, snapChair: snapChair, chairsAround: chairsAround, chairSeat: chairSeat, toiletSeat: toiletSeat, toWorld: toWorld, bjSeats: bjSeats, bjDealer: bjDealer, bjLocal: bjLocal, floorAt: floorAt, blocked: blocked, seatFor: seatFor, spawn: spawn, randomSpot: randomSpot, postFor: postFor, entrance: entrance, clear: clear };
 });
