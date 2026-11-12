@@ -67,6 +67,7 @@ kbd{font:inherit;font-size:12px;border:1px solid var(--line);border-radius:6px;p
   <div id="lake"></div>
   <button class="tb hh" id="bLog" type="button" hidden>Logbook</button>
   <button class="tb hh" id="bHow" type="button" hidden>?</button>
+  <button class="tb" id="bGlass" type="button" aria-pressed="false">Glass off</button>
   <button class="tb" id="mute" type="button" aria-pressed="false">Sound on</button>
 </header>
 <div id="toast" role="status"></div>
@@ -328,7 +329,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.6));renderer.toneMa
 var scene=new T.Scene();scene.fog=new T.FogExp2(0x3a4668,.0042);
 var cam=new T.PerspectiveCamera(55,1,.1,3500);
 function resize(){var w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);cam.aspect=w/h;cam.fov=w<h?70:55;cam.updateProjectionMatrix()}
-addEventListener('resize',resize);resize();
+addEventListener('resize',function(){resize();if(typeof glassResize==='function'&&glassRT)glassResize()});resize();
 
 var sky=new T.Sky();sky.scale.setScalar(3200);scene.add(sky);
 var su=sky.material.uniforms;su.turbidity.value=7;su.rayleigh.value=1.4;su.mieCoefficient.value=.006;su.mieDirectionalG.value=.88;
@@ -700,6 +701,46 @@ var panel=$('panel'),bar=$('bar'),act=$('act');
 function showPanel(html){panel.innerHTML=html;panel.hidden=false;var b=panel.querySelector('.pri')||panel.querySelector('button');if(b)b.focus({preventScroll:true})}
 function hidePanel(){panel.hidden=true;try{cv.focus()}catch(e){}}
 function toast(m,ms){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(function(){t.classList.remove('on')},ms||2600);$('live').textContent=m}
+/* ---------- stained glass mode: the whole world re-drawn as leaded glass ---------- */
+var glassOn=lsGet('nf.glass')==='1',glassRT=null,glassScene=new T.Scene(),glassCam=new T.OrthographicCamera(-1,1,1,-1,0,1),glassMat=null;
+(function(){
+  glassMat=new T.ShaderMaterial({uniforms:{tex:{value:null},res:{value:new T.Vector2(1,1)},cell:{value:40},time:{value:0}},depthTest:false,depthWrite:false,
+  vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
+  fragmentShader:[
+  'precision highp float;uniform sampler2D tex;uniform vec2 res;uniform float cell,time;varying vec2 vUv;',
+  'vec2 hash2(vec2 p){p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3)));return fract(sin(p)*43758.5453);}',
+  'float hash1(vec2 p){return fract(sin(dot(p,vec2(41.3,289.1)))*43758.5453);}',
+  'vec4 vor(vec2 x,float jit){vec2 n=floor(x),f=fract(x),mg=vec2(0.),mr=vec2(0.);float md=8.;',
+  ' for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){vec2 g=vec2(float(i),float(j));vec2 o=.5+jit*(hash2(n+g)-.5);vec2 r=g+o-f;float d=dot(r,r);if(d<md){md=d;mr=r;mg=g;}}',
+  ' md=8.;for(int j=-2;j<=2;j++)for(int i=-2;i<=2;i++){vec2 g=mg+vec2(float(i),float(j));vec2 o=.5+jit*(hash2(n+g)-.5);vec2 r=g+o-f;if(dot(mr-r,mr-r)>1e-5)md=min(md,dot(.5*(mr+r),normalize(r-mr)));}',
+  ' return vec4(md,n+mg,0.);}',
+  'vec3 rgb2hsv(vec3 c){vec4 K=vec4(0.,-1./3.,2./3.,-1.);vec4 p=mix(vec4(c.bg,K.wz),vec4(c.gb,K.xy),step(c.b,c.g));vec4 q=mix(vec4(p.xyw,c.r),vec4(c.r,p.yzx),step(p.x,c.r));float d=q.x-min(q.w,q.y);return vec3(abs(q.z+(q.w-q.y)/(6.*d+1e-6)),d/(q.x+1e-6),q.x);}',
+  'vec3 hsv2rgb(vec3 c){vec4 K=vec4(1.,2./3.,1./3.,3.);vec3 p=abs(fract(c.xxx+K.xyz)*6.-K.www);return c.z*mix(K.xxx,clamp(p-K.xxx,0.,1.),c.y);}',
+  'vec3 aces(vec3 x){return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.);}',
+  'void main(){vec2 px=gl_FragCoord.xy;',
+  ' vec4 v=vor(px/cell,.92);vec2 id=v.yz;vec2 c=(id+.5+.92*(hash2(id)-.5))*cell;',
+  ' vec3 col=texture2D(tex,c/res).rgb*.5;float o=cell*.24;',
+  ' col+=texture2D(tex,(c+vec2(o,0.))/res).rgb*.125+texture2D(tex,(c-vec2(o,0.))/res).rgb*.125+texture2D(tex,(c+vec2(0.,o))/res).rgb*.125+texture2D(tex,(c-vec2(0.,o))/res).rgb*.125;',
+  ' col=aces(col*.95);',
+  ' vec3 hsv=rgb2hsv(col);float h=hash1(id);',
+  ' float hq=floor(hsv.x*12.+.5)/12.;hsv.x=fract(mix(hsv.x,hq,.45)+(h-.5)*.03);',
+  ' hsv.y=clamp(hsv.y*1.4+.15,.3,1.);hsv.z=clamp(pow(hsv.z,1.0)*2.1,.03,1.);',
+  ' col=hsv2rgb(hsv);col*=.88+.2*h;',
+  ' vec2 d=(px-c)/cell;col*=1.12-.3*length(d)+.14*dot(d,vec2(-.6,.8));',
+  ' float nz=hash1(floor(px*.5)+floor(id*7.));col*=.93+.1*nz;col*=.96+.05*sin(time*.5+h*6.2831);',
+  ' col+=col*col*.3;',
+  ' vec4 B=vor(px/(cell*4.6),.8);',
+  ' float thin=1.-smoothstep(.035,.075,v.x),big=1.-smoothstep(.016,.04,B.x);float L=max(thin*.95,big*.9);',
+  ' vec3 lead=vec3(.022,.017,.02)+vec3(.05,.04,.03)*smoothstep(.0,.04,B.x)*(1.-L)*0.;',
+  ' col=mix(col,lead,L);',
+  ' vec2 uv=vUv-.5;col*=1.-.55*dot(uv,uv);',
+  ' gl_FragColor=vec4(pow(col,vec3(.9)),1.);}'].join('\n')});
+  var q=new T.Mesh(new T.PlaneGeometry(2,2),glassMat);q.frustumCulled=false;glassScene.add(q);
+})();
+function glassResize(){var pr=renderer.getPixelRatio(),w=innerWidth*pr,h=innerHeight*pr;if(!glassRT)glassRT=new T.WebGLRenderTarget(w,h,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat});glassRT.setSize(w,h);glassMat.uniforms.res.value.set(w,h);glassMat.uniforms.cell.value=Math.max(17,Math.min(38,Math.min(innerWidth,innerHeight)/24))*pr}
+function glassUI(){var b=$('bGlass');if(!b)return;b.textContent=glassOn?'Glass on':'Glass off';b.setAttribute('aria-pressed',glassOn?'true':'false');cv.setAttribute('aria-label',glassOn?'The lake seen as stained glass':'A rowboat on a dark lake at dusk')}
+function renderWorld(time){if(!glassOn){renderer.render(scene,cam);return}if(!glassRT)glassResize();glassMat.uniforms.time.value=time||0;glassMat.uniforms.tex.value=glassRT.texture;renderer.setRenderTarget(glassRT);renderer.render(scene,cam);renderer.setRenderTarget(null);renderer.render(glassScene,glassCam)}
+
 function muteUI(){var b=$('mute');b.textContent=muted?'Sound off':'Sound on';b.setAttribute('aria-pressed',muted?'true':'false');if(master)master.gain.value=muted?0:.8}
 function logGet(){return lsGet('nf.log',{})}
 function showMenu(){
@@ -718,7 +759,7 @@ function showHow(back){
    +'<p><b>Read the float</b>, then <b>strike</b> with <kbd>Space</kbd>. Too early or too late and the bait is lost, so reel in (<kbd>R</kbd>) and cast again. No timer, no score.</p>'
    +'<table><tr><th>Float does</th><th>It means</th></tr><tr><td>Quick shallow taps</td><td>Something small nibbling</td></tr><tr><td>Slow sideways drift, no dip</td><td>Bait is carried off. Strike late.</td></tr><tr><td>Rises and lies flat</td><td>Bait lifted from below</td></tr><tr><td>One hard plunge</td><td>About half a second to strike</td></tr><tr><td>Trembles, no movement</td><td>Something big is near</td></tr><tr><td>Regular rhythmic bob</td><td>Waves, a snag or junk</td></tr></table>'
    +'<p><b>Ashore</b>: row to the shore or the pier and press <kbd>F</kbd> to step out. Walk to the camp, sit in a chair by the fire with <kbd>F</kbd>, or press <kbd>1</kbd> for a smoke. Press <kbd>F</kbd> near your boat to climb back in.</p>'
-   +'<p><kbd>N</kbd> sound effects, <kbd>L</kbd> logbook.</p><div class="row"><button class="btn pri" id="hwBack" type="button">Back</button></div>');
+   +'<p><kbd>N</kbd> sound effects, <kbd>G</kbd> stained glass view, <kbd>L</kbd> logbook.</p><div class="row"><button class="btn pri" id="hwBack" type="button">Back</button></div>');
   $('hwBack').onclick=back||hidePanel}
 function showLogbook(back){
   var lg=logGet(),ids=NF.ORDER,got=ids.filter(function(i){return lg[i]}).length,tot=ids.length;
@@ -819,6 +860,7 @@ act.addEventListener('pointerdown',function(e){e.preventDefault();if(S.mode!==0)
 addEventListener('pointerup',function(){if(S.me.phase==='charge')releaseCast()});
 (function(){var b=document.createElement('button');b.className='tb';b.id='bSmoke';b.type='button';b.textContent='Smoke (1)';b.hidden=true;b.style.cssText='position:fixed;right:14px;bottom:calc(120px + env(safe-area-inset-bottom));z-index:3';document.body.appendChild(b);b.addEventListener('click',function(){toggleSmoke()})})();
 $('reel').addEventListener('click',function(){reelIn()});
+$('bGlass').addEventListener('click',function(e){glassOn=!glassOn;lsSet('nf.glass',glassOn?'1':'0');glassUI();if(e.detail>0)e.currentTarget.blur()});
 $('mute').addEventListener('click',function(e){muted=!muted;lsSet('nf.muted',muted);muteUI();if(e.detail>0)e.currentTarget.blur()});
 $('bLog').addEventListener('click',function(){showLogbook(hidePanel)});$('bHow').addEventListener('click',function(){showHow(hidePanel)});
 var KEYMAP={KeyW:'w',ArrowUp:'w',KeyS:'s',ArrowDown:'s',KeyA:'a',ArrowLeft:'a',KeyD:'d',ArrowRight:'d'};
@@ -834,6 +876,7 @@ addEventListener('keydown',function(e){
   if(e.code==='KeyF'&&!e.repeat){doInteract();return}
   if((e.code==='Digit1'||e.code==='Numpad1')&&!e.repeat){toggleSmoke();return}
   if(e.code==='KeyN'){$('mute').click();return}
+  if(e.code==='KeyG'){$('bGlass').click();return}
   if(e.code==='KeyL'&&S.state==='play'){showLogbook(hidePanel);return}
   if((e.code==='KeyH'||e.key==='?')&&S.state==='play'){showHow(hidePanel)}});
 addEventListener('keyup',function(e){S.wasd.shift=e.shiftKey;if(e.code==='KeyQ')S.qe.q=false;if(e.code==='KeyE')S.qe.e=false;var k=KEYMAP[e.code];if(k)S.wasd[k]=false;if(e.code==='Space'&&S.me.phase==='charge')releaseCast()});
@@ -871,9 +914,9 @@ function frame(){
     camStep(dt,time);if(rain&&rain.visible){}
     if(S.state==='play')updateAct();netPose(performance.now());
   }catch(e){console.error('frame',e);if(!S.errShown){S.errShown=true;try{toast('Error: '+(e&&e.message||e),8000)}catch(x){}}}
-  renderer.render(scene,cam)}
+  renderWorld(time)}
 
-muteUI();
+muteUI();glassUI();
 applyLake(NF.dailySeed());
 camPos.set(S.me.x,3,S.me.z-9);
 showMenu();netConnect();frame();
