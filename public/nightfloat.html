@@ -705,12 +705,13 @@ function showPanel(html){panel.innerHTML=html;panel.hidden=false;var b=panel.que
 function hidePanel(){panel.hidden=true;try{cv.focus()}catch(e){}}
 function toast(m,ms){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(function(){t.classList.remove('on')},ms||2600);$('live').textContent=m}
 /* ---------- stained glass mode: the whole world re-drawn as leaded glass ---------- */
-var glassOn=lsGet('nf.glass')==='1',glassRT=null,glassScene=new T.Scene(),glassCam=new T.OrthographicCamera(-1,1,1,-1,0,1),glassMat=null;
+var glassNRT=null,glassIdMat=new T.MeshNormalMaterial(),glassHide=[];var glassOn=lsGet('nf.glass')==='1',glassRT=null,glassScene=new T.Scene(),glassCam=new T.OrthographicCamera(-1,1,1,-1,0,1),glassMat=null;
 (function(){
-  glassMat=new T.ShaderMaterial({uniforms:{tex:{value:null},res:{value:new T.Vector2(1,1)},cell:{value:40},time:{value:0}},depthTest:false,depthWrite:false,
+  glassMat=new T.ShaderMaterial({uniforms:{tex:{value:null},dtex:{value:null},ntex:{value:null},zn:{value:.1},zf:{value:1000},res:{value:new T.Vector2(1,1)},cell:{value:40},time:{value:0}},depthTest:false,depthWrite:false,
   vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
   fragmentShader:[
-  'precision highp float;uniform sampler2D tex;uniform vec2 res;uniform float cell,time;varying vec2 vUv;',
+  'precision highp float;uniform sampler2D tex,dtex,ntex;uniform vec2 res;uniform float cell,time,zn,zf;varying vec2 vUv;',
+  'float lz(vec2 p){float d=texture2D(dtex,p/res).r;return 2.*zn*zf/(zf+zn-(2.*d-1.)*(zf-zn));}',
   'vec2 hash2(vec2 p){p=vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3)));return fract(sin(p)*43758.5453);}',
   'float hash1(vec2 p){return fract(sin(dot(p,vec2(41.3,289.1)))*43758.5453);}',
   'vec4 vor(vec2 x,float jit){vec2 n=floor(x),f=fract(x),mg=vec2(0.),mr=vec2(0.);float md=8.;',
@@ -732,8 +733,9 @@ var glassOn=lsGet('nf.glass')==='1',glassRT=null,glassScene=new T.Scene(),glassC
   ' vec2 d=(px-c)/cell;col*=1.12-.3*length(d)+.14*dot(d,vec2(-.6,.8));',
   ' float nz=hash1(floor(px*.5)+floor(id*7.));col*=.93+.1*nz;col*=.96+.05*sin(time*.5+h*6.2831);',
   ' col+=col*col*.3;',
-  ' float pr=cell/9.;float ee=0.;for(int r=1;r<=2;r++){float k=float(r)*1.6*pr;vec3 ex=texture2D(tex,(px+vec2(k,0.))/res).rgb-texture2D(tex,(px-vec2(k,0.))/res).rgb;vec3 ey=texture2D(tex,(px+vec2(0.,k))/res).rgb-texture2D(tex,(px-vec2(0.,k))/res).rgb;ee=max(ee,dot(abs(ex)+abs(ey),vec3(.35,.5,.15))/(.12+dot(px0,vec3(.3,.59,.11))*.6));}',
-  ' float thin=1.-smoothstep(.03,.065,v.x),big=smoothstep(.3,.6,ee);float L=max(thin*.8,big);',
+  ' float pr=cell/9.;float de=0.;{float k=1.6*pr;float z0=lz(px),zl=lz(px-vec2(k,0.)),zr=lz(px+vec2(k,0.)),zd=lz(px-vec2(0.,k)),zu=lz(px+vec2(0.,k));float mn=min(min(z0,zl),min(zr,min(zu,zd)));de=max(max(abs(zr+zl-2.*z0),abs(zu+zd-2.*z0))/mn,max(abs(zr-zl),abs(zu-zd))/mn*.55);}',
+  ' float ne=0.;{float k=1.3*pr;vec3 a=texture2D(ntex,(px+vec2(k,0.))/res).rgb,b=texture2D(ntex,(px-vec2(k,0.))/res).rgb,c2=texture2D(ntex,(px+vec2(0.,k))/res).rgb,d2=texture2D(ntex,(px-vec2(0.,k))/res).rgb;ne=max(dot(abs(a-b),vec3(1.)),dot(abs(c2-d2),vec3(1.)));}',
+  ' float thin=1.-smoothstep(.03,.065,v.x),big=max(smoothstep(.16,.22,de),smoothstep(.55,.7,ne));float L=max(thin*.8,big);',
   ' vec3 lead=vec3(.022,.017,.02);',
   ' col=mix(col,lead,L);',
   ' vec2 uv=vUv-.5;col*=1.-.55*dot(uv,uv);',
@@ -784,9 +786,9 @@ var vanOn=lsGet('nf.van')==='1',vanMat=null,vanQ=null;
   ' gl_FragColor=vec4(pow(clamp(col,0.,1.),vec3(.95)),1.);}'].join('\n')});
   vanQ=new T.Mesh(new T.PlaneGeometry(2,2),vanMat);vanQ.frustumCulled=false;
 })();
-function glassResize(){var pr=renderer.getPixelRatio(),w=innerWidth*pr,h=innerHeight*pr;if(!glassRT)glassRT=new T.WebGLRenderTarget(w,h,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat});glassRT.setSize(w,h);glassMat.uniforms.res.value.set(w,h);vanMat.uniforms.res.value.set(w,h);vanMat.uniforms.pr.value=pr;glassMat.uniforms.cell.value=Math.max(9,Math.min(16,Math.min(innerWidth,innerHeight)/50))*pr}
+function glassResize(){var pr=renderer.getPixelRatio(),w=innerWidth*pr,h=innerHeight*pr;if(!glassRT)glassRT=new T.WebGLRenderTarget(w,h,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat});glassNRT=new T.WebGLRenderTarget(w,h,{minFilter:T.NearestFilter,magFilter:T.NearestFilter,format:T.RGBAFormat});glassRT.depthTexture=new T.DepthTexture(w,h);glassRT.depthTexture.type=T.UnsignedIntType;glassRT.depthTexture.format=T.DepthFormat;glassRT.setSize(w,h);glassNRT.setSize(w,h);glassMat.uniforms.res.value.set(w,h);vanMat.uniforms.res.value.set(w,h);vanMat.uniforms.pr.value=pr;glassMat.uniforms.cell.value=Math.max(9,Math.min(16,Math.min(innerWidth,innerHeight)/50))*pr}
 function glassUI(){var b=$('bGlass');if(!b)return;b.textContent=glassOn?'Glass on':'Glass off';b.setAttribute('aria-pressed',glassOn?'true':'false');var v=$('bVan');v.textContent=vanOn?'Van Gogh on':'Van Gogh off';v.setAttribute('aria-pressed',vanOn?'true':'false');cv.setAttribute('aria-label',vanOn?'The lake painted in swirling oil strokes':glassOn?'The lake seen as stained glass':'A rowboat on a dark lake at dusk')}
-function renderWorld(time){if(!glassOn&&!vanOn){renderer.render(scene,cam);return}try{if(!glassRT)glassResize();var m=vanOn?vanMat:glassMat;m.uniforms.time.value=time||0;m.uniforms.tex.value=glassRT.texture;glassScene.children[0].material=m;renderer.setRenderTarget(glassRT);renderer.render(scene,cam);renderer.setRenderTarget(null);renderer.render(glassScene,glassCam)}catch(err){renderer.setRenderTarget(null);glassOn=false;vanOn=false;glassUI();renderer.render(scene,cam);try{console.error('filter off',err)}catch(e){}}}
+function renderWorld(time){if(!glassOn&&!vanOn){renderer.render(scene,cam);return}try{if(!glassRT)glassResize();var m=vanOn?vanMat:glassMat;m.uniforms.time.value=time||0;m.uniforms.tex.value=glassRT.texture;glassScene.children[0].material=m;if(!vanOn){m.uniforms.dtex.value=glassRT.depthTexture;m.uniforms.zn.value=cam.near;m.uniforms.zf.value=cam.far}if(!vanOn){glassHide.length=0;scene.traverse(function(o){if((o.isPoints||o.isSprite||o===sky||o.isLine)&&o.visible){glassHide.push(o);o.visible=false}});var fg0=scene.fog;scene.fog=null;scene.overrideMaterial=glassIdMat;renderer.setRenderTarget(glassNRT);renderer.setClearColor(0x000000,1);renderer.render(scene,cam);scene.overrideMaterial=null;scene.fog=fg0;glassHide.forEach(function(o){o.visible=true});m.uniforms.ntex.value=glassNRT.texture}renderer.setRenderTarget(glassRT);renderer.render(scene,cam);renderer.setRenderTarget(null);renderer.render(glassScene,glassCam)}catch(err){renderer.setRenderTarget(null);glassOn=false;vanOn=false;glassUI();renderer.render(scene,cam);try{console.error('filter off',err)}catch(e){}}}
 
 function muteUI(){var b=$('mute');b.textContent=muted?'Sound off':'Sound on';b.setAttribute('aria-pressed',muted?'true':'false');if(master)master.gain.value=muted?0:.8}
 function logGet(){return lsGet('nf.log',{})}
