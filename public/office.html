@@ -1044,7 +1044,7 @@ function frame0(){
     if(a.stun>0){a.stun=Math.max(0,a.stun-dt);u.inner.rotation.z=Math.sin(t*16)*.28*Math.min(1,a.stun*2);u.stars.visible=true;u.stars.children.forEach(function(st,si){var an=t*5+si*2.09;st.position.set(Math.cos(an)*.55,Math.sin(t*3+si)*.08,Math.sin(an)*.55)})}
     else{u.inner.rotation.z=0;u.stars.visible=false}
     var lk2=a.lieK||0;lk2+=((lie?1:0)-lk2)*Math.min(1,dt*7);a.lieK=lk2<.003?0:lk2;
-    u.lf=a.lieK||0;if(a.lieK>0){var kk=a.lieK;u.inner.rotation.x=-1.5708*kk;u.inner.position.y+=(1.22-u.inner.position.y)*kk;u.inner.position.z=1.2*kk;
+    u.lf=a.lieK||0;if(a.lieK>0){var kk=a.lieK;u.inner.rotation.x=-1.5708*kk;u.inner.position.y+=(.96-u.inner.position.y)*kk;u.inner.position.z=1.2*kk;
       u.arms[0].rotation.x=u.arms[0].rotation.x*(1-kk)-.55*kk;u.arms[1].rotation.x=u.arms[1].rotation.x*(1-kk)-.55*kk;u.legs[0].rotation.x*=1-kk;u.legs[1].rotation.x*=1-kk;
       u.arms[0].rotation.z=u.arms[0].rotation.z*(1-kk)-.1*kk;u.arms[1].rotation.z=u.arms[1].rotation.z*(1-kk)+.1*kk;u.legs[0].rotation.z=.07*kk;u.legs[1].rotation.z=-.07*kk;
       [0,1].forEach(function(ai){var fa=u.arms[ai].children[1];if(fa){fa.rotation.x=-.28*(1-kk);fa.rotation.z=(ai?1:-1)*1.45*kk}})}
