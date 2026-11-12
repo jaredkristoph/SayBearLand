@@ -91,7 +91,7 @@ button.chip:disabled{opacity:.45;cursor:not-allowed}
   <div class="row" id="bjBet"><button class="chip" type="button" data-add="1">+1</button><button class="chip" type="button" data-add="5">+5</button><button class="chip" type="button" data-add="10">+10</button><button class="chip" type="button" data-add="25">+25</button><button class="chip" type="button" data-add="0">Clear</button></div>
   <div class="row" id="bjAct"><button class="chip go" type="button" data-a="hit">Hit</button><button class="chip red" type="button" data-a="stand">Stand</button><button class="chip" type="button" data-a="double" id="bjDbl">Double</button><button class="chip" type="button" data-a="split" id="bjSplit">Split</button></div>
 </div>
-<div class="hud" id="cam" aria-label="Camera"><button class="chip" id="hitBtn" type="button" aria-label="Swing hammer">Hammer H</button><button class="chip" id="helpBtn" type="button" aria-pressed="false" aria-label="Show or hide controls help">?</button><button class="chip" id="fpBtn" type="button" aria-pressed="false" aria-label="Toggle first person view">1st person V</button><button class="chip" id="qL" type="button" aria-label="Turn camera left">Q &#8634;</button><button class="chip" id="eR" type="button" aria-label="Turn camera right">&#8635; E</button></div>
+<div class="hud" id="cam" aria-label="Camera"><button class="chip" id="hitBtn" type="button" aria-label="Swing hammer">Hammer H</button><button class="chip" id="helpBtn" type="button" aria-pressed="false" aria-label="Show or hide controls help">?</button><button class="chip" id="fpBtn" type="button" aria-pressed="false" aria-label="Toggle first person view">1st person V</button><button class="chip" id="gfxBtn" type="button" aria-label="Graphics quality">Graphics</button><button class="chip" id="qL" type="button" aria-label="Turn camera left">Q &#8634;</button><button class="chip" id="eR" type="button" aria-label="Turn camera right">&#8635; E</button></div>
 <div class="hud" id="board" hidden role="dialog" aria-label="Announcements"><h2>ANNOUNCEMENTS</h2><div id="boardItems"></div><small>Press F or Esc to close.</small></div>
 <div class="hud" id="toast" hidden></div>
 <div class="hud" id="wb" hidden role="dialog" aria-label="Whiteboard"><div id="wbTools"></div><canvas id="wbCanvas" width="1000" height="600"></canvas></div>
@@ -984,11 +984,29 @@ cvs.addEventListener('click',function(){if(fp&&!zoom&&!seated&&document.pointerL
 document.addEventListener('mousemove',function(e){if(!fp||zoom||document.pointerLockElement!==cvs)return;yaw-=e.movementX*.0025;pitch=Math.max(-.9,Math.min(.9,pitch+e.movementY*.0025))});
 function resize(){var w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}
 addEventListener('resize',resize);resize();
+/* ---------- graphics quality: shadow sharpness and render resolution ---------- */
+var GFX=[{n:'Low',map:1024,fit:0,dpr:1},{n:'Medium',map:2048,fit:0,dpr:1.5},{n:'High',map:4096,fit:22,dpr:2},{n:'Ultra',map:6144,fit:16,dpr:3}];
+var gfxI=2,sunOff=sun.position.clone(),shadowFit=0,_gr=new T.Vector3(),_gu=new T.Vector3(),_gd=new T.Vector3(),_gc=new T.Vector3(),_gy=new T.Vector3(0,1,0);
+(function(){var v=null;try{v=localStorage.getItem('gfx')}catch(e){}var i=GFX.map(function(g){return g.n}).indexOf(v);if(i<0)i=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)?1:2;gfxI=i})();
+scene.add(sun.target);
+function applyGfx(){var g=GFX[gfxI],mx=Math.min(g.map,renderer.capabilities.maxTextureSize||4096);
+  if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}
+  sun.shadow.mapSize.set(mx,mx);renderer.setPixelRatio(Math.min(devicePixelRatio||1,g.dpr));resize();
+  shadowFit=g.fit;var c=sun.shadow.camera;
+  if(g.fit){c.left=-g.fit;c.right=g.fit;c.top=g.fit;c.bottom=-g.fit}else{var e=Math.max(lw.w,lw.h)*.75;c.left=-e;c.right=e;c.top=e;c.bottom=-e;sun.target.position.set(0,0,0);sun.position.copy(sunOff)}
+  c.updateProjectionMatrix();$('gfxBtn').textContent='Graphics: '+g.n}
+/* with a high setting the shadow map follows the player, snapped to whole texels so the edges do not shimmer */
+function updateShadow(){if(!shadowFit)return;var p=me?me.g.position:{x:0,z:0},ts=2*shadowFit/sun.shadow.mapSize.x;
+  _gd.copy(sunOff).normalize();_gr.crossVectors(_gy,_gd).normalize();_gu.crossVectors(_gd,_gr);_gc.set(p.x,0,p.z);
+  var a=_gc.dot(_gr),b=_gc.dot(_gu);_gc.addScaledVector(_gr,Math.round(a/ts)*ts-a).addScaledVector(_gu,Math.round(b/ts)*ts-b);
+  sun.target.position.copy(_gc);sun.position.copy(_gc).add(sunOff);sun.target.updateMatrixWorld();sun.updateMatrixWorld()}
+$('gfxBtn').addEventListener('click',function(){gfxI=(gfxI+1)%GFX.length;try{localStorage.setItem('gfx',GFX[gfxI].n)}catch(e){}applyGfx();toast('Graphics: '+GFX[gfxI].n+(gfxI===3?' (needs a strong graphics card)':''));$('gfxBtn').blur()});
+applyGfx();
 
 /* ---------- main loop ---------- */
 var clock=new T.Clock(),camPos=new T.Vector3(0,12.5,16),look=new T.Vector3(0,1,0),camSet=false;
 var frameErrShown=false;
-function frame(){requestAnimationFrame(frame);try{frame0()}catch(e){console.error('frame error',e);if(!frameErrShown){frameErrShown=true;try{$('online').textContent='Error: '+(e&&e.message||e)}catch(x){}}}finally{if(clean){hiddenSprites.length=0;scene.traverse(function(o){if(o.isSprite&&o.visible){o.visible=false;hiddenSprites.push(o)}})}renderer.render(scene,cam);for(var hs=0;hs<hiddenSprites.length;hs++)hiddenSprites[hs].visible=true}}
+function frame(){requestAnimationFrame(frame);try{frame0()}catch(e){console.error('frame error',e);if(!frameErrShown){frameErrShown=true;try{$('online').textContent='Error: '+(e&&e.message||e)}catch(x){}}}finally{if(clean){hiddenSprites.length=0;scene.traverse(function(o){if(o.isSprite&&o.visible){o.visible=false;hiddenSprites.push(o)}})}updateShadow();renderer.render(scene,cam);for(var hs=0;hs<hiddenSprites.length;hs++)hiddenSprites[hs].visible=true}}
 function frame0(){
   var dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;bjFrame(dt,t);if(me)me.g.visible=!fp;
   if(me&&!camSet){camPos.set(me.g.position.x,12.5,me.g.position.z+16);look.set(me.g.position.x,1,me.g.position.z);camSet=true}
