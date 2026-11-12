@@ -58,6 +58,7 @@ th{color:var(--dim);font-weight:500}
 #rcv{width:100%;height:150px;display:block;border-radius:12px;background:radial-gradient(ellipse at 50% 60%,#14224a,#060914)}
 kbd{font:inherit;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:0 6px;color:var(--dim)}
 @media (max-width:520px){.panel{padding:18px 16px}#lake{font-size:13px}.chip{display:block;width:max-content;margin:2px 0 0}}
+body.nohud #lake,body.nohud .tb:not(#bHud),body.nohud #bar,body.nohud #toast,body.nohud #joy,body.nohud #bSmoke{display:none!important}body.nohud #bHud{opacity:.35}body.nohud #bHud:hover,body.nohud #bHud:focus-visible{opacity:1}
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
 </style>
 </head>
@@ -67,6 +68,7 @@ kbd{font:inherit;font-size:12px;border:1px solid var(--line);border-radius:6px;p
   <div id="lake"></div>
   <button class="tb hh" id="bLog" type="button" hidden>Logbook</button>
   <button class="tb hh" id="bHow" type="button" hidden>?</button>
+  <button class="tb" id="bHud" type="button" title="Hide or show the HUD (U)">Hide UI</button>
   <button class="tb" id="bGlass" type="button" aria-pressed="false">Glass off</button>
   <button class="tb" id="mute" type="button" aria-pressed="false">Sound on</button>
 </header>
@@ -729,15 +731,15 @@ var glassOn=lsGet('nf.glass')==='1',glassRT=null,glassScene=new T.Scene(),glassC
   ' vec2 d=(px-c)/cell;col*=1.12-.3*length(d)+.14*dot(d,vec2(-.6,.8));',
   ' float nz=hash1(floor(px*.5)+floor(id*7.));col*=.93+.1*nz;col*=.96+.05*sin(time*.5+h*6.2831);',
   ' col+=col*col*.3;',
-  ' vec4 B=vor(px/(cell*6.5),.8);',
-  ' float thin=1.-smoothstep(.022,.05,v.x),big=1.-smoothstep(.01,.028,B.x);float L=max(thin*.9,big*.85);',
+  ' vec4 B=vor(px/(cell*11.),.8);',
+  ' float thin=1.-smoothstep(.03,.065,v.x),big=1.-smoothstep(.006,.016,B.x);float L=max(thin*.9,big*.85);',
   ' vec3 lead=vec3(.022,.017,.02)+vec3(.05,.04,.03)*smoothstep(.0,.04,B.x)*(1.-L)*0.;',
   ' col=mix(col,lead,L);',
   ' vec2 uv=vUv-.5;col*=1.-.55*dot(uv,uv);',
   ' gl_FragColor=vec4(pow(col,vec3(.9)),1.);}'].join('\n')});
   var q=new T.Mesh(new T.PlaneGeometry(2,2),glassMat);q.frustumCulled=false;glassScene.add(q);
 })();
-function glassResize(){var pr=renderer.getPixelRatio(),w=innerWidth*pr,h=innerHeight*pr;if(!glassRT)glassRT=new T.WebGLRenderTarget(w,h,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat});glassRT.setSize(w,h);glassMat.uniforms.res.value.set(w,h);glassMat.uniforms.cell.value=Math.max(11,Math.min(22,Math.min(innerWidth,innerHeight)/40))*pr}
+function glassResize(){var pr=renderer.getPixelRatio(),w=innerWidth*pr,h=innerHeight*pr;if(!glassRT)glassRT=new T.WebGLRenderTarget(w,h,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat});glassRT.setSize(w,h);glassMat.uniforms.res.value.set(w,h);glassMat.uniforms.cell.value=Math.max(9,Math.min(16,Math.min(innerWidth,innerHeight)/50))*pr}
 function glassUI(){var b=$('bGlass');if(!b)return;b.textContent=glassOn?'Glass on':'Glass off';b.setAttribute('aria-pressed',glassOn?'true':'false');cv.setAttribute('aria-label',glassOn?'The lake seen as stained glass':'A rowboat on a dark lake at dusk')}
 function renderWorld(time){if(!glassOn){renderer.render(scene,cam);return}try{if(!glassRT)glassResize();glassMat.uniforms.time.value=time||0;glassMat.uniforms.tex.value=glassRT.texture;renderer.setRenderTarget(glassRT);renderer.render(scene,cam);renderer.setRenderTarget(null);renderer.render(glassScene,glassCam)}catch(err){renderer.setRenderTarget(null);glassOn=false;glassUI();renderer.render(scene,cam);try{console.error('glass off',err)}catch(e){}}}
 
@@ -860,6 +862,7 @@ act.addEventListener('pointerdown',function(e){e.preventDefault();if(S.mode!==0)
 addEventListener('pointerup',function(){if(S.me.phase==='charge')releaseCast()});
 (function(){var b=document.createElement('button');b.className='tb';b.id='bSmoke';b.type='button';b.textContent='Smoke (1)';b.hidden=true;b.style.cssText='position:fixed;right:14px;bottom:calc(120px + env(safe-area-inset-bottom));z-index:3';document.body.appendChild(b);b.addEventListener('click',function(){toggleSmoke()})})();
 $('reel').addEventListener('click',function(){reelIn()});
+$('bHud').addEventListener('click',function(e){var h=document.body.classList.toggle('nohud');this.textContent=h?'Show UI':'Hide UI';this.setAttribute('aria-pressed',h?'true':'false');if(e.detail>0)this.blur()});
 $('bGlass').addEventListener('click',function(e){glassOn=!glassOn;lsSet('nf.glass',glassOn?'1':'0');glassUI();if(e.detail>0)e.currentTarget.blur()});
 $('mute').addEventListener('click',function(e){muted=!muted;lsSet('nf.muted',muted);muteUI();if(e.detail>0)e.currentTarget.blur()});
 $('bLog').addEventListener('click',function(){showLogbook(hidePanel)});$('bHow').addEventListener('click',function(){showHow(hidePanel)});
@@ -877,6 +880,7 @@ addEventListener('keydown',function(e){
   if((e.code==='Digit1'||e.code==='Numpad1')&&!e.repeat){toggleSmoke();return}
   if(e.code==='KeyN'){$('mute').click();return}
   if(e.code==='KeyG'){$('bGlass').click();return}
+  if(e.code==='KeyU'){$('bHud').click();return}
   if(e.code==='KeyL'&&S.state==='play'){showLogbook(hidePanel);return}
   if((e.code==='KeyH'||e.key==='?')&&S.state==='play'){showHow(hidePanel)}});
 addEventListener('keyup',function(e){S.wasd.shift=e.shiftKey;if(e.code==='KeyQ')S.qe.q=false;if(e.code==='KeyE')S.qe.e=false;var k=KEYMAP[e.code];if(k)S.wasd[k]=false;if(e.code==='Space'&&S.me.phase==='charge')releaseCast()});
