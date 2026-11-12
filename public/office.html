@@ -1027,8 +1027,8 @@ function frame0(){
     else{u.inner.rotation.z=0;u.stars.visible=false}
     var lk2=a.lieK||0;lk2+=((lie?1:0)-lk2)*Math.min(1,dt*7);a.lieK=lk2<.003?0:lk2;
     if(a.lieK>0){var kk=a.lieK;u.inner.rotation.x=-1.5708*kk;u.inner.position.y+=(1.22-u.inner.position.y)*kk;u.inner.position.z=1.2*kk;
-      u.arms[0].rotation.x*=1-kk;u.arms[1].rotation.x*=1-kk;u.legs[0].rotation.x*=1-kk;u.legs[1].rotation.x*=1-kk;
-      u.arms[0].rotation.z+=.25*kk;u.arms[1].rotation.z-=.25*kk;u.legs[0].rotation.z=.07*kk;u.legs[1].rotation.z=-.07*kk}
+      u.arms[0].rotation.x=u.arms[0].rotation.x*(1-kk)-.95*kk;u.arms[1].rotation.x=u.arms[1].rotation.x*(1-kk)-.95*kk;u.legs[0].rotation.x*=1-kk;u.legs[1].rotation.x*=1-kk;
+      u.arms[0].rotation.z=u.arms[0].rotation.z*(1-kk)+.8*kk;u.arms[1].rotation.z=u.arms[1].rotation.z*(1-kk)-.8*kk;u.legs[0].rotation.z=.07*kk;u.legs[1].rotation.z=-.07*kk}
     else{u.inner.position.z=0;u.legs[0].rotation.z=0;u.legs[1].rotation.z=0}
     if(a.tag)a.tag.position.y=3.35-(a.lieK||0)*.6;
     if(u.sync)u.sync(sit&&!(a.lieK>.5));
