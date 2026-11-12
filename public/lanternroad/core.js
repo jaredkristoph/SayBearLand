@@ -24,7 +24,7 @@
   var HERO = {
     warden: { name: 'Warden', role: 'Tank', hp: 110, atk: 8, def: 5, spd: .85, ranged: false, skill: 'Shield Wall', skillNote: 'Every ally takes 35% less damage for 4s', passive: 'Stalwart', passiveNote: '+15% max HP', cd: 10 },
     pikeman: { name: 'Pikeman', role: 'Striker', hp: 85, atk: 13, def: 3, spd: 1, ranged: false, skill: 'Long Thrust', skillNote: 'Pierces a front and a back enemy for 170%', passive: 'Keen Eye', passiveNote: '+10% crit chance', cd: 7 },
-    witch: { name: 'Hedge-witch', role: 'Mage', hp: 58, atk: 11, def: 1, spd: .9, ranged: true, skill: 'Hex Bolt', skillNote: 'Hits every enemy for 100%, half defence ignored', passive: 'Brewer', passiveNote: 'Skills recharge 10% faster', cd: 8 },
+    witch: { name: 'Hedge-wizard', role: 'Mage', hp: 58, atk: 11, def: 1, spd: .9, ranged: true, skill: 'Hex Bolt', skillNote: 'Hits every enemy for 100%, half defence ignored', passive: 'Brewer', passiveNote: 'Skills recharge 10% faster', cd: 8 },
     chanter: { name: 'Chanter', role: 'Healer', hp: 66, atk: 6, def: 2, spd: .9, ranged: true, skill: 'Hymn', skillNote: 'Heals the weakest ally for 30% of their health', passive: 'Soft Voice', passiveNote: 'Party regenerates 0.4% HP per second', cd: 7 },
     trapper: { name: 'Trapper', role: 'Control', hp: 76, atk: 10, def: 2, spd: 1.05, ranged: true, skill: 'Snare', skillNote: 'Stuns an enemy for 2.5s and hits for 140%', passive: 'Scavenger', passiveNote: '+12% gold', cd: 9 },
     tinker: { name: 'Tinker', role: 'Support', hp: 64, atk: 9, def: 2, spd: .95, ranged: true, skill: 'Overclock', skillNote: 'Party acts 30% faster for 5s', passive: 'Salvage', passiveNote: '+10% embers', cd: 11 }
