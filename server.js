@@ -20,6 +20,7 @@ function createApp(store = createStore(), env = process.env) {
   const app = express();
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
+  require('./lib/lanternroad').mount(app, store, { secret: SECRET, secure: SECURE });
   app.use('/api/admin/logo', express.json({ limit: '700kb' }));
   app.use(express.json({ limit: '20kb' }));
   app.use((req, res, next) => {
