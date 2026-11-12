@@ -410,11 +410,11 @@ var COL=[],CHAIRS=[],FIRE={x:CAMP.x,z:CAMP.z},campFx={flames:[],light:null,glow:
   /* chairs, facing the fire */
   var cols=[0xb23a2e,0x2f6aa8,0x3f8a4f,0xd98a2a];
   [[.5,3.5],[1.75,3.4],[3.5,3.5],[5.0,3.4]].forEach(function(c,i){var a=c[0],r=c[1],cx=Math.sin(a)*r,cz=Math.cos(a)*r,h=Math.atan2(-cx,-cz),ch=new T.Group(),fab=M(cols[i],.9),fr=M(0x2a2e36,.5,.5);
-    var seat=new T.Mesh(new T.BoxGeometry(.58,.05,.52),fab);seat.position.y=.27;ch.add(seat);
-    var back=new T.Mesh(new T.BoxGeometry(.58,.5,.05),fab);back.position.set(0,.55,-.27);back.rotation.x=-.14;ch.add(back);
-    [[-.27,.24],[.27,.24],[-.27,-.24],[.27,-.24]].forEach(function(l){var lg=new T.Mesh(new T.CylinderGeometry(.018,.018,.3,6),fr);lg.position.set(l[0],.13,l[1]);ch.add(lg)});
-    [-1,1].forEach(function(s){var ar=new T.Mesh(new T.BoxGeometry(.035,.035,.45),fr);ar.position.set(s*.31,.4,-.02);ch.add(ar);var po=new T.Mesh(new T.CylinderGeometry(.015,.015,.14,6),fr);po.position.set(s*.31,.34,.17);ch.add(po)});
-    var cup=new T.Mesh(new T.CylinderGeometry(.04,.03,.09,10),M(0x888c96,.4,.6));cup.position.set(.31,.46,.15);ch.add(cup);
+    var seat=new T.Mesh(new T.BoxGeometry(.58,.05,.52),fab);seat.position.y=.225;ch.add(seat);
+    var back=new T.Mesh(new T.BoxGeometry(.58,.5,.05),fab);back.position.set(0,.5,-.27);back.rotation.x=-.14;ch.add(back);
+    [[-.27,.24],[.27,.24],[-.27,-.24],[.27,-.24]].forEach(function(l){var lg=new T.Mesh(new T.CylinderGeometry(.018,.018,.22,6),fr);lg.position.set(l[0],.11,l[1]);ch.add(lg)});
+    [-1,1].forEach(function(s){var ar=new T.Mesh(new T.BoxGeometry(.035,.035,.45),fr);ar.position.set(s*.31,.37,-.02);ch.add(ar);var po=new T.Mesh(new T.CylinderGeometry(.015,.015,.12,6),fr);po.position.set(s*.31,.31,.17);ch.add(po)});
+    var cup=new T.Mesh(new T.CylinderGeometry(.04,.03,.09,10),M(0x888c96,.4,.6));cup.position.set(.31,.43,.15);ch.add(cup);
     ch.position.set(cx,0,cz);ch.rotation.y=h;g.add(ch);CHAIRS.push({x:CAMP.x+cx,z:CAMP.z+cz,h:h,taken:null})});
   /* tents */
   [[8.5,3.5,.6,0xb8442e],[-7.5,6,-.5,0x2f7f8f]].forEach(function(tt){var tg=new T.Group(),cn=new T.Mesh(new T.ConeGeometry(2.4,2.1,4,1,true),new T.MeshStandardMaterial({color:tt[3],roughness:.9,side:T.DoubleSide,emissive:tt[3],emissiveIntensity:.12}));cn.rotation.y=Math.PI/4;cn.position.y=1.05;tg.add(cn);
@@ -575,7 +575,7 @@ function updateRig(rig,dt,time){
   p.needsUpdate=true}
 
 /* ---------- on foot: walking, sitting, smoking ---------- */
-var ARM_REST_R=[.371,1.0257,1.3962,-.3416,.0399],ARM_REST_L=[-.1261,1.4684,.2641,-.015,.0329],ARM_SM_R=[-1.4684,.5849,1.6303,-1.1901,1.2112];
+var ARM_REST_R=[.371,1.0257,1.3962,-.3416,.0399],ARM_REST_L=[-.1261,1.4684,.2641,-.015,.0329],ARM_SM_R=[-1.0907,1.6498,.7233,-1.5482,1.7559];
 var puffTex=(function(){var c=document.createElement('canvas');c.width=c.height=64;var x=c.getContext('2d'),g=x.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(230,230,235,.9)');g.addColorStop(.5,'rgba(200,205,215,.4)');g.addColorStop(1,'rgba(190,195,210,0)');x.fillStyle=g;x.fillRect(0,0,64,64);return new T.CanvasTexture(c)})();
 var puffs=[];
 function puff(x,y,z,size,life,vy){var p=puffs.find(function(q){return!q.on});if(!p){if(puffs.length>70)return;var s=new T.Sprite(new T.SpriteMaterial({map:puffTex,transparent:true,depthWrite:false,fog:true,opacity:0}));scene.add(s);p={s:s,on:false};puffs.push(p)}
@@ -587,9 +587,9 @@ function applyMode(rig){
   if(rig.mode===0){rig.g.add(c.root);c.root.position.set(0,PP.y,PP.zz);c.root.rotation.set(0,0,0);rig.rod.visible=true;rig.wg.visible=false;if(rig.lb){rig.g.add(rig.lb);rig.lb.position.set(0,2.7,-.3)}}
   else{rig.wg.add(c.root);c.root.position.set(0,0,0);c.root.rotation.set(0,0,0);rig.rod.visible=false;rig.wg.visible=true;if(rig.lb){rig.wg.add(rig.lb);rig.lb.position.set(0,2.25,0)}}}
 function setMode(rig,m){if(rig.mode===m)return;if(rig.mode===0&&rig.phase!=='none')endCast(rig);rig.mode=m;applyMode(rig);if(m===0)stopSmoke(rig)}
-function mkCig(rig){if(rig.cig)return rig.cig;var g=new T.Group(),st=new T.Mesh(new T.CylinderGeometry(.007,.007,.085,6),new T.MeshStandardMaterial({color:0xf2efe6,roughness:.7}));st.rotation.x=Math.PI/2;g.add(st);
-  var fl=new T.Mesh(new T.CylinderGeometry(.0075,.0075,.025,6),new T.MeshStandardMaterial({color:0xc9893a,roughness:.7}));fl.rotation.x=Math.PI/2;fl.position.z=-.055;g.add(fl);
-  var tip=new T.Sprite(new T.SpriteMaterial({map:glowTex,transparent:true,depthWrite:false,blending:T.AdditiveBlending,fog:false,color:0xff6a2a}));tip.scale.set(.09,.09,1);tip.position.z=.045;g.add(tip);
+function mkCig(rig){if(rig.cig)return rig.cig;var g=new T.Group(),st=new T.Mesh(new T.CylinderGeometry(.011,.011,.17,6),new T.MeshStandardMaterial({color:0xf2efe6,roughness:.7}));st.rotation.x=Math.PI/2;g.add(st);
+  var fl=new T.Mesh(new T.CylinderGeometry(.0115,.0115,.035,6),new T.MeshStandardMaterial({color:0xc9893a,roughness:.7}));fl.rotation.x=Math.PI/2;fl.position.z=-.102;g.add(fl);
+  var tip=new T.Sprite(new T.SpriteMaterial({map:glowTex,transparent:true,depthWrite:false,blending:T.AdditiveBlending,fog:false,color:0xff6a2a}));tip.scale.set(.09,.09,1);tip.position.z=.087;g.add(tip);
   var lf=new T.Sprite(new T.SpriteMaterial({map:glowTex,transparent:true,depthWrite:false,blending:T.AdditiveBlending,fog:false,color:0xffd070}));lf.scale.set(.2,.2,1);lf.visible=false;g.add(lf);
   g.visible=false;scene.add(g);rig.cig={g:g,tip:tip,lf:lf};return rig.cig}
 function startSmoke(rig){if(rig.sm)return;rig.sm=1;rig.smT=0;mkCig(rig);if(rig.me){SND.lighter()}}
@@ -605,13 +605,14 @@ function walkRig(rig,dt,time){
   var gy=groundY(rig.px,rig.pz);rig.wg.position.set(rig.px,gy+(sit?.05:0),rig.pz);rig.wg.rotation.y=rig.ph;
   if(rig.sm){rig.smT+=dt}
   var ks=rig.sm?smokeK(rig.smT):0;
-  if(sit){d(B.RightUpLeg,PP.lx,PP.lz);d(B.LeftUpLeg,PP.lx,-PP.lz);d(B.RightLeg,PP.kn,0);d(B.LeftLeg,PP.kn,0);armPose(rig,[0,0,0],ks);d(B.Spine1,-.08+Math.sin(time*.9)*.01,0);d(B.Head,.08+Math.sin(time*.4+1)*.03,Math.sin(time*.33)*.1)}
+  if(sit){d(B.RightUpLeg,-1.0,.1);d(B.LeftUpLeg,-1.0,-.1);d(B.RightLeg,.9,0);d(B.LeftLeg,.9,0);armPose(rig,[0,0,0],ks);d(B.Spine1,-.08+Math.sin(time*.9)*.01,0);d(B.Head,.08+Math.sin(time*.4+1)*.03,Math.sin(time*.33)*.1)}
   else{d(B.RightUpLeg,-.6*s,0);d(B.LeftUpLeg,.6*s,0);d(B.RightLeg,Math.max(0,.9*Math.sin(rig.wp+.5))*k,0);d(B.LeftLeg,Math.max(0,.9*Math.sin(rig.wp+Math.PI+.5))*k,0);
     armPose(rig,[-.35*s*(1-ks),0,.35*s],ks);d(B.Spine1,.04*k,Math.sin(rig.wp)*.05*k);d(B.Head,.06+Math.sin(time*.4)*.03,Math.sin(time*.33)*.08);
     c.root.position.y=Math.abs(Math.sin(rig.wp))*.03*k}
-  if(sit)c.root.position.y=0;
+  if(sit){c.root.position.y=-.16;c.root.position.z=.12}else c.root.position.z=0;
   if(rig.sm&&rig.cig){var cg=rig.cig;rig.g.updateMatrixWorld(true);rig.wg.updateMatrixWorld(true);B.RightHand.getWorldPosition(_wp);cg.g.visible=true;
-    var f=[Math.sin(rig.ph),Math.cos(rig.ph)];cg.g.position.set(_wp.x+f[0]*.03,_wp.y+.01,_wp.z+f[1]*.03);cg.g.rotation.set(-.2-ks*.3,rig.ph+.3*(1-ks),0,'YXZ');
+    var f=[Math.sin(rig.ph),Math.cos(rig.ph)];B.RightForeArm.getWorldPosition(_wp2);var dx=_wp.x-_wp2.x,dy=_wp.y-_wp2.y,dz=_wp.z-_wp2.z,dl=Math.hypot(dx,dy,dz)||1;dx/=dl;dy/=dl;dz/=dl;
+    var tx=_wp.x+dx*.075,ty=_wp.y+dy*.075,tz=_wp.z+dz*.075;cg.g.position.set(tx,ty,tz);var ox=f[0]*.8,oy=.3,oz=f[1]*.8,vx=dx+(ox-dx)*ks,vy=dy+(oy-dy)*ks,vz=dz+(oz-dz)*ks;cg.g.lookAt(tx+vx,ty+vy,tz+vz);_wp.set(tx,ty,tz);
     var inh=rig.smT%8.5,drag=ks>.95&&inh>1.3&&inh<2.6;cg.tip.material.opacity=.45+(drag?.55:0)+.1*Math.sin(time*7);cg.tip.scale.setScalar(.07+(drag?.07:0));
     cg.lf.visible=rig.smT<1.1;if(cg.lf.visible){cg.lf.position.set(0,.03,.12);cg.lf.material.opacity=1-rig.smT/1.1}
     rig.puffT=(rig.puffT||0)-dt;if(rig.puffT<=0){rig.puffT=.5+Math.random()*.4;if(!drag)puff(_wp.x+f[0]*.05,_wp.y+.05,_wp.z+f[1]*.05,.07,3.2,.22)}
