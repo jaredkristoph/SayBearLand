@@ -8,6 +8,7 @@ const A = require('./lib/auth');
 const L = require('./public/layout.js');
 const { createWorld } = require('./lib/world');
 const { createNightfloat } = require('./lib/nightfloat');
+const { createWordly } = require('./lib/wordly');
 
 function createApp(store = createStore(), env = process.env) {
   const SECRET = env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
@@ -186,6 +187,7 @@ function createApp(store = createStore(), env = process.env) {
   const world = createWorld({ authenticate, getLayout, getBots, store, canWear, addCoins, spendCoins, deskPaySecs: Number(env.DESK_PAY_SECS) || 10 });
   app.locals.world = world;
   app.locals.nightfloat = nightfloat;
+  app.locals.wordly = createWordly();
 
 
   // ---- mail: the only way coins and new outfits arrive ----
@@ -362,6 +364,7 @@ if (require.main === module) {
   const server = http.createServer(app);
   app.locals.world.handleUpgrade(server);
   app.locals.nightfloat.handleUpgrade(server);
+  app.locals.wordly.handleUpgrade(server);
   server.listen(port, () => console.log(`SayBearLand on :${port} (storage: ${store.kind})`));
 }
 module.exports = { createApp };
