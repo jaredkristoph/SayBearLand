@@ -35,7 +35,7 @@ function createApp(store = createStore(), env = process.env) {
 
   // Wardrobe: every costume and colour is unlocked for everyone.
   const CATALOG = {
-    costumes: ['none', 'bear', 'cat', 'duck', 'robot', 'crown', 'cap', 'tophat', 'wizard', 'cowboy', 'chef', 'party', 'beanie', 'propeller', 'headphones', 'viking', 'halo'], colors: [0xff5d5d, 0xffb347, 0xffd166, 0x3ee6c4, 0x7aa2ff, 0xc9b6ff, 0xff7eb6],
+    costumes: ['none', 'bear', 'cat', 'duck', 'robot', 'crown', 'cap', 'tophat', 'wizard', 'cowboy', 'chef', 'party', 'beanie', 'propeller', 'headphones', 'viking', 'halo', 'santa'], colors: [0xff5d5d, 0xffb347, 0xffd166, 0x3ee6c4, 0x7aa2ff, 0xc9b6ff, 0xff7eb6],
     starterCostumes: [], starterColors: [],
   };
   CATALOG.starterCostumes = CATALOG.costumes.slice(); CATALOG.starterColors = CATALOG.colors.slice();
@@ -162,7 +162,7 @@ function createApp(store = createStore(), env = process.env) {
 
   // ---- shared content: layout, announcements, logo, bots ----
   const BOT_ROLES = ['CEO', 'Tester', 'CCO', 'Web Developer', 'Application Developer', 'Designer', 'HR', 'Support'];
-  const BOT_COSTUMES = ['bear', 'cat', 'duck', 'robot', 'crown', 'none', 'cap', 'tophat', 'wizard', 'cowboy', 'chef', 'party', 'beanie', 'propeller', 'headphones', 'viking', 'halo'];
+  const BOT_COSTUMES = ['bear', 'cat', 'duck', 'robot', 'crown', 'none', 'cap', 'tophat', 'wizard', 'cowboy', 'chef', 'party', 'beanie', 'propeller', 'headphones', 'viking', 'halo', 'santa'];
   const DEFAULT_BOTS = [
     { id: 'ceo', name: 'Boss Bot', role: 'CEO', costume: 'crown', color: 0xffd166, speed: 1.4 },
     { id: 'tess', name: 'Tess-Bot', role: 'Tester', costume: 'robot', color: 0xc9b6ff, speed: 1.6 },

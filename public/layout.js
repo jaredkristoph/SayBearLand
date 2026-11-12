@@ -23,6 +23,9 @@
     waterCooler: { label: 'Water cooler', hw: 0.4, hd: 0.4 },
     fountain: { label: 'Fountain', hw: 1.1, hd: 1.1 },
     aquarium: { label: 'Aquarium', hw: 1.3, hd: 0.55 },
+    moneyStack: { label: 'Money stack (lie down on it)', hw: 1.6, hd: 1.6 },
+    moneyBags: { label: 'Money bags', hw: 1.4, hd: 1.05 },
+    christmasTree: { label: 'Christmas tree', hw: 1.1, hd: 1.1 },
     board: { label: 'Announcement board', wall: true },
     whiteboard: { label: 'Whiteboard (draw)', wall: true, draw: true },
     logo: { label: 'Logo plaque', wall: true },
@@ -70,6 +73,8 @@
       o('sf', 'sofa', 20, 24.6),
       // casino corner
       o('bj1', 'blackjack', 32, 14.5),
+      // money corner and a Christmas tree
+      o('ms1', 'moneyStack', 36.9, 21.8), o('mbg1', 'moneyBags', 27.6, 21.6), o('xt1', 'christmasTree', 23.3, 22.6),
       // plants
       o('p1', 'plant', 1, 1), o('p2', 'plant', 39, 1), o('p3', 'plant', 1, 27), o('p4', 'plant', 39, 27), o('p5', 'plant', 14.5, 24), o('p6', 'plant', 25.5, 24), o('p7', 'plant', 27, 17), o('p8', 'plant', 13, 17),
     ];
@@ -196,6 +201,13 @@
   }
   function bjDealer(o) { var q = bjLocal(o, 0, -1.7); return { x: q.x, z: q.z, r: o.rot * Math.PI / 2 }; }
 
+  // Money stack: two people can lie side by side on the cash. The sitter lies on their back with their
+  // head towards the back of the stack (local -z) and gets up on the front side (+z).
+  function lieSeats(o) {
+    var th = o.rot * Math.PI / 2;
+    return [-0.8, 0.8].map(function (lx) { var q = bjLocal(o, lx, 0); return { x: q.x, z: q.z, face: th, theta: th, exitD: 2.3 }; });
+  }
+
   function toWorld(l) {
     var ox = l.w / 2, oz = l.h / 2;
     var objects = l.objects.map(function (o) { return { id: o.id, type: o.type, rot: o.rot, x: o.x - ox, z: o.z - oz, text: o.text, color: o.color }; });
@@ -283,5 +295,5 @@
     return { x: Math.round(st.x * 100) / 100, z: Math.round(st.z * 100) / 100, r: Math.round(st.face * 100) / 100, seat: o.type === 'desk' };
   }
 
-  return { FLOORS: FLOORS, TYPES: TYPES, LIMITS: LIMITS, defaultLayout: defaultLayout, validate: validate, snapToWall: snapToWall, snapChair: snapChair, chairsAround: chairsAround, chairSeat: chairSeat, toiletSeat: toiletSeat, toWorld: toWorld, bjSeats: bjSeats, bjDealer: bjDealer, bjLocal: bjLocal, floorAt: floorAt, blocked: blocked, seatFor: seatFor, spawn: spawn, randomSpot: randomSpot, postFor: postFor, entrance: entrance, clear: clear };
+  return { FLOORS: FLOORS, TYPES: TYPES, LIMITS: LIMITS, defaultLayout: defaultLayout, validate: validate, snapToWall: snapToWall, snapChair: snapChair, chairsAround: chairsAround, chairSeat: chairSeat, toiletSeat: toiletSeat, toWorld: toWorld, bjSeats: bjSeats, lieSeats: lieSeats, bjDealer: bjDealer, bjLocal: bjLocal, floorAt: floorAt, blocked: blocked, seatFor: seatFor, spawn: spawn, randomSpot: randomSpot, postFor: postFor, entrance: entrance, clear: clear };
 });
