@@ -719,27 +719,27 @@ var glassOn=lsGet('nf.glass')==='1',glassRT=null,glassScene=new T.Scene(),glassC
   'vec3 aces(vec3 x){return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.);}',
   'void main(){vec2 px=gl_FragCoord.xy;',
   ' vec4 v=vor(px/cell,.92);vec2 id=v.yz;vec2 c=(id+.5+.92*(hash2(id)-.5))*cell;',
-  ' vec3 col=texture2D(tex,c/res).rgb*.5;float o=cell*.24;',
-  ' col+=texture2D(tex,(c+vec2(o,0.))/res).rgb*.125+texture2D(tex,(c-vec2(o,0.))/res).rgb*.125+texture2D(tex,(c+vec2(0.,o))/res).rgb*.125+texture2D(tex,(c-vec2(0.,o))/res).rgb*.125;',
-  ' col=aces(col*.95);',
+  ' float o=cell*.3;vec3 raw=texture2D(tex,c/res).rgb*.28;',
+  ' raw+=(texture2D(tex,(c+vec2(o,0.))/res).rgb+texture2D(tex,(c-vec2(o,0.))/res).rgb+texture2D(tex,(c+vec2(0.,o))/res).rgb+texture2D(tex,(c-vec2(0.,o))/res).rgb+texture2D(tex,(c+vec2(o,o))/res).rgb+texture2D(tex,(c-vec2(o,o))/res).rgb+texture2D(tex,(c+vec2(o,-o))/res).rgb+texture2D(tex,(c+vec2(-o,o))/res).rgb)*.09;',
+  ' vec3 px0=texture2D(tex,px/res).rgb;float lc=dot(raw,vec3(.3,.59,.11))+.02,lp=dot(px0,vec3(.3,.59,.11))+.02;raw*=mix(1.,clamp(lp/lc,.55,1.7),.65);vec3 col=aces(raw*.95);',
   ' vec3 hsv=rgb2hsv(col);float h=hash1(id);',
-  ' float hq=floor(hsv.x*12.+.5)/12.;hsv.x=fract(mix(hsv.x,hq,.45)+(h-.5)*.03);',
+  ' float hq=floor(hsv.x*12.+.5)/12.;hsv.x=fract(mix(hsv.x,hq,.3)+(h-.5)*.03);',
   ' hsv.y=clamp(hsv.y*1.4+.15,.3,1.);hsv.z=clamp(pow(hsv.z,1.0)*2.1,.03,1.);',
   ' col=hsv2rgb(hsv);col*=.88+.2*h;',
   ' vec2 d=(px-c)/cell;col*=1.12-.3*length(d)+.14*dot(d,vec2(-.6,.8));',
   ' float nz=hash1(floor(px*.5)+floor(id*7.));col*=.93+.1*nz;col*=.96+.05*sin(time*.5+h*6.2831);',
   ' col+=col*col*.3;',
-  ' vec4 B=vor(px/(cell*4.6),.8);',
-  ' float thin=1.-smoothstep(.035,.075,v.x),big=1.-smoothstep(.016,.04,B.x);float L=max(thin*.95,big*.9);',
+  ' vec4 B=vor(px/(cell*6.5),.8);',
+  ' float thin=1.-smoothstep(.022,.05,v.x),big=1.-smoothstep(.01,.028,B.x);float L=max(thin*.9,big*.85);',
   ' vec3 lead=vec3(.022,.017,.02)+vec3(.05,.04,.03)*smoothstep(.0,.04,B.x)*(1.-L)*0.;',
   ' col=mix(col,lead,L);',
   ' vec2 uv=vUv-.5;col*=1.-.55*dot(uv,uv);',
   ' gl_FragColor=vec4(pow(col,vec3(.9)),1.);}'].join('\n')});
   var q=new T.Mesh(new T.PlaneGeometry(2,2),glassMat);q.frustumCulled=false;glassScene.add(q);
 })();
-function glassResize(){var pr=renderer.getPixelRatio(),w=innerWidth*pr,h=innerHeight*pr;if(!glassRT)glassRT=new T.WebGLRenderTarget(w,h,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat});glassRT.setSize(w,h);glassMat.uniforms.res.value.set(w,h);glassMat.uniforms.cell.value=Math.max(17,Math.min(38,Math.min(innerWidth,innerHeight)/24))*pr}
+function glassResize(){var pr=renderer.getPixelRatio(),w=innerWidth*pr,h=innerHeight*pr;if(!glassRT)glassRT=new T.WebGLRenderTarget(w,h,{minFilter:T.LinearFilter,magFilter:T.LinearFilter,format:T.RGBAFormat});glassRT.setSize(w,h);glassMat.uniforms.res.value.set(w,h);glassMat.uniforms.cell.value=Math.max(11,Math.min(22,Math.min(innerWidth,innerHeight)/40))*pr}
 function glassUI(){var b=$('bGlass');if(!b)return;b.textContent=glassOn?'Glass on':'Glass off';b.setAttribute('aria-pressed',glassOn?'true':'false');cv.setAttribute('aria-label',glassOn?'The lake seen as stained glass':'A rowboat on a dark lake at dusk')}
-function renderWorld(time){if(!glassOn){renderer.render(scene,cam);return}if(!glassRT)glassResize();glassMat.uniforms.time.value=time||0;glassMat.uniforms.tex.value=glassRT.texture;renderer.setRenderTarget(glassRT);renderer.render(scene,cam);renderer.setRenderTarget(null);renderer.render(glassScene,glassCam)}
+function renderWorld(time){if(!glassOn){renderer.render(scene,cam);return}try{if(!glassRT)glassResize();glassMat.uniforms.time.value=time||0;glassMat.uniforms.tex.value=glassRT.texture;renderer.setRenderTarget(glassRT);renderer.render(scene,cam);renderer.setRenderTarget(null);renderer.render(glassScene,glassCam)}catch(err){renderer.setRenderTarget(null);glassOn=false;glassUI();renderer.render(scene,cam);try{console.error('glass off',err)}catch(e){}}}
 
 function muteUI(){var b=$('mute');b.textContent=muted?'Sound off':'Sound on';b.setAttribute('aria-pressed',muted?'true':'false');if(master)master.gain.value=muted?0:.8}
 function logGet(){return lsGet('nf.log',{})}
