@@ -33,6 +33,7 @@ body.clean>*:not(#stage){display:none!important}
 #bj[hidden],#bj .row[hidden]{display:none}
 #bj b{font-size:15px;letter-spacing:.04em}#bj .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}#bj small{opacity:.8}
 #bj button.chip:disabled{opacity:.45;cursor:default}#bj button.go{background:#3ee6c4;color:#0f0d24;border-color:#1b9c85}#bj button.red{background:#ff6b81;color:#0f0d24;border-color:#c13f55}
+#moves{position:fixed;right:10px;bottom:max(64px,calc(env(safe-area-inset-bottom,0px) + 52px));z-index:5;background:#17133a;border:3px solid var(--line);border-radius:16px;padding:8px;display:flex;flex-direction:column;gap:6px;min-width:170px;max-height:50vh;overflow:auto}#moves[hidden]{display:none}#moves b{font-size:13px;letter-spacing:.04em}#moves button{display:flex;justify-content:space-between;gap:12px;text-align:left}#moves kbd{opacity:.75}
 button.chip{font:700 14px var(--font);color:var(--text);background:#211d47;border:3px solid var(--line);border-radius:14px;padding:4px 12px;cursor:pointer}
 button.chip[aria-pressed="true"]{background:var(--mint);color:#0f1a17;border-color:#0b0a1c}
 .sw{width:26px;height:26px;border-radius:50%;border:3px solid #0b0a1c;padding:0;cursor:pointer}
@@ -91,7 +92,7 @@ button.chip:disabled{opacity:.45;cursor:not-allowed}
   <div class="row" id="bjBet"><button class="chip" type="button" data-add="1">+1</button><button class="chip" type="button" data-add="5">+5</button><button class="chip" type="button" data-add="10">+10</button><button class="chip" type="button" data-add="25">+25</button><button class="chip" type="button" data-add="0">Clear</button></div>
   <div class="row" id="bjAct"><button class="chip go" type="button" data-a="hit">Hit</button><button class="chip red" type="button" data-a="stand">Stand</button><button class="chip" type="button" data-a="double" id="bjDbl">Double</button><button class="chip" type="button" data-a="split" id="bjSplit">Split</button></div>
 </div>
-<div class="hud" id="cam" aria-label="Camera"><button class="chip" id="hitBtn" type="button" aria-label="Swing hammer">Hammer H</button><button class="chip" id="helpBtn" type="button" aria-pressed="false" aria-label="Show or hide controls help">?</button><button class="chip" id="fpBtn" type="button" aria-pressed="false" aria-label="Toggle first person view">1st person V</button><button class="chip" id="gfxBtn" type="button" aria-label="Graphics quality">Graphics</button><button class="chip" id="vanBtn" type="button" aria-pressed="false" aria-label="Van Gogh painting filter">Van Gogh G</button><button class="chip" id="smkBtn" type="button" aria-pressed="false" aria-label="Smoke a cigarette">Smoke 1</button><button class="chip" id="qL" type="button" aria-label="Turn camera left">Q &#8634;</button><button class="chip" id="eR" type="button" aria-label="Turn camera right">&#8635; E</button></div>
+<div class="hud" id="cam" aria-label="Camera"><button class="chip" id="hitBtn" type="button" aria-label="Swing hammer">Hammer H</button><button class="chip" id="helpBtn" type="button" aria-pressed="false" aria-label="Show or hide controls help">?</button><button class="chip" id="fpBtn" type="button" aria-pressed="false" aria-label="Toggle first person view">1st person V</button><button class="chip" id="gfxBtn" type="button" aria-label="Graphics quality">Graphics</button><button class="chip" id="vanBtn" type="button" aria-pressed="false" aria-label="Van Gogh painting filter">Van Gogh G</button><button class="chip" id="movesBtn" type="button" aria-expanded="false" aria-label="Moves menu">Moves</button><button class="chip" id="smkBtn" type="button" aria-pressed="false" aria-label="Smoke a cigarette">Smoke 1</button><button class="chip" id="qL" type="button" aria-label="Turn camera left">Q &#8634;</button><button class="chip" id="eR" type="button" aria-label="Turn camera right">&#8635; E</button></div>
 <div class="hud" id="board" hidden role="dialog" aria-label="Announcements"><h2>ANNOUNCEMENTS</h2><div id="boardItems"></div><small>Press F or Esc to close.</small></div>
 <div class="hud" id="toast" hidden></div>
 <div class="hud" id="wb" hidden role="dialog" aria-label="Whiteboard"><div id="wbTools"></div><canvas id="wbCanvas" width="1000" height="600"></canvas></div>
@@ -102,9 +103,10 @@ button.chip:disabled{opacity:.45;cursor:not-allowed}
   <button class="chip" id="mailClose" type="button" aria-label="Close mail">Close</button>
 </div>
 
-<script src="/layout.js"></script>
+<script src="/layout.js"></script><script src="/anims.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="/vendor/GLTFLoader.js"></script><script src="/vendor/SkeletonUtils.js"></script>
+<div id="moves" hidden role="menu" aria-label="Moves"></div>
 <script>
 (function(){
 var T=THREE,L=CLLayout;
@@ -537,7 +539,7 @@ function jelly(color,costume){
     var B={};cl.traverse(function(o){if(o.isBone){B[o.name.replace('mixamorig','')]=o}if(o.isSkinnedMesh){o.material=bmat;o.frustumCulled=false;o.castShadow=true;o.receiveShadow=true}});
     var q=new T.Quaternion();
     Object.keys(B).forEach(function(k){var b=B[k];b.userData.q0=b.quaternion.clone();b.parent.getWorldQuaternion(q);b.userData.qp=q.clone();b.userData.qpi=q.clone().invert()});
-    var FZ=1.45;function drive(b,rx,rz){if(!b)return;var D=new T.Quaternion().setFromEuler(new T.Euler(rx,0,rz,'XYZ'));b.quaternion.copy(b.userData.qpi).multiply(D).multiply(b.userData.qp).multiply(b.userData.q0)}
+    var FZ=1.45;function drive(b,rx,rz,ry){if(!b)return;var D=new T.Quaternion().setFromEuler(new T.Euler(rx,ry||0,rz,'XYZ'));b.quaternion.copy(b.userData.qpi).multiply(D).multiply(b.userData.qp).multiply(b.userData.q0)}
     if(src.eyeTex){bmat.emissive.set(0xffffff);bmat.emissiveMap=src.eyeTex;bmat.emissiveIntensity=1.2;bmat.needsUpdate=true}
     inner.add(mw);proc.forEach(function(m){m.visible=false});
     head.position.set(0,2.26,.02);head.scale.setScalar(.64);cost.position.set(0,.14,.16);
@@ -545,11 +547,12 @@ function jelly(color,costume){
     root.userData.sync=function(sit){
       var a0=arms[0].rotation,a1=arms[1].rotation;
       drive(B.RightArm,a0.x,1.4+a0.z);drive(B.LeftArm,a1.x,-1.4+a1.z);
-      var ty=root.userData.ty||0,tp=root.userData.tp||0;var lf=root.userData.lf||0;drive(B.RightForeArm,-.3-ty*(.5+Math.sin(tp)*.25),FZ*lf);drive(B.LeftForeArm,-.3-ty*(.5+Math.sin(tp+2.4)*.25),-FZ*lf);
-      drive(B.RightUpLeg,legs[0].rotation.x,0);drive(B.LeftUpLeg,legs[1].rotation.x,0);
-      var kb=sit?1.5:Math.max(0,legs[0].rotation.x)*.8,kb2=sit?1.5:Math.max(0,legs[1].rotation.x)*.8;
+      var ty=root.userData.ty||0,tp=root.userData.tp||0;var lf=root.userData.lf||0,pv=root.userData.pv;
+      if(pv){drive(B.RightForeArm,-pv.fRx,pv.fRz);drive(B.LeftForeArm,-pv.fLx,-pv.fLz)}else{drive(B.RightForeArm,-.3-ty*(.5+Math.sin(tp)*.25),FZ*lf);drive(B.LeftForeArm,-.3-ty*(.5+Math.sin(tp+2.4)*.25),-FZ*lf)}
+      drive(B.RightUpLeg,legs[0].rotation.x,pv?-pv.lRz:0);drive(B.LeftUpLeg,legs[1].rotation.x,pv?pv.lLz:0);
+      var kb=sit?1.5:Math.max(0,legs[0].rotation.x)*.8,kb2=sit?1.5:Math.max(0,legs[1].rotation.x)*.8;if(pv){kb=pv.kR;kb2=pv.kL}
       drive(B.RightLeg,kb,0);drive(B.LeftLeg,kb2,0);
-      drive(B.Head,0,head.rotation.z);
+      drive(B.Head,pv?pv.headX:0,head.rotation.z,pv?pv.headY:0);
     };
   };
   var shadow=new T.Mesh(new T.CircleGeometry(.7,24),new T.MeshBasicMaterial({color:0,transparent:true,opacity:.28}));shadow.rotation.x=-Math.PI/2;shadow.position.y=.02;root.add(shadow);
@@ -617,6 +620,19 @@ function smokeActor(a,u,dt,t){var ck=u.cig;if(!ck)return;var on=!!a.smk;ck.visib
   if(cyc>=5&&!a.exh){a.exh=1;ck.getWorldPosition(_sp);u.head.getWorldQuaternion(_sq);_sd.set(0,0,1).applyQuaternion(_sq);
     for(var n=0;n<9;n++)puff(_sp.x+_sd.x*.1,_sp.y,_sp.z+_sd.z*.1,_sd.x*(.9+Math.random()*.5)+(Math.random()-.5)*.3,.25+Math.random()*.3,_sd.z*(.9+Math.random()*.5)+(Math.random()-.5)*.3,.2,.7+Math.random()*.4,2.8+Math.random(),.4)}
   if(cyc<5)a.exh=0}
+function playMove(id){if(!me||seated||zoom||me.stun>0||STU.on)return;var an=ANIMS[id];if(!an)return;
+  if(me.an===id&&an.loop){me.an='';toast(an.name+' stopped.')}else{me.an=id;me.anSeen=null}$('moves').hidden=true;$('movesBtn').setAttribute('aria-expanded','false')}
+function moveByKey(k){for(var id in ANIMS)if(ANIMS[id].key===k)return ANIMS[id];return null}
+function buildMoves(){var box=$('moves');box.innerHTML='';var h=document.createElement('b');h.textContent='Moves (moving cancels)';box.appendChild(h);
+  var ids=Object.keys(ANIMS);if(!ids.length){var n=document.createElement('small');n.textContent='No moves yet.';box.appendChild(n)}
+  ids.forEach(function(id){var an=ANIMS[id],b=document.createElement('button');b.type='button';b.className='chip';b.setAttribute('role','menuitem');b.textContent=an.name;if(an.key){var k=document.createElement('kbd');k.textContent=an.key;b.appendChild(k)}b.onclick=function(){playMove(id)};box.appendChild(b)})}
+function loadMoves(){J('/api/anims').then(function(j){ANIMS={};(j.anims||[]).forEach(function(a){ANIMS[a.id]=a});buildMoves()}).catch(function(){})}
+loadMoves();
+$('movesBtn').addEventListener('click',function(){var o=$('moves').hidden;$('moves').hidden=!o;$('movesBtn').setAttribute('aria-expanded',o?'true':'false');$('movesBtn').blur()});
+/* hooks for the admin Animation studio (public/studio.js) */
+window.SBL={me:function(){return me},user:ME,setPose:function(p){STU.pose=p},setStudio:function(on){STU.on=!!on;if(on&&me){me.an='';if(seated){}}},
+  setAnims:function(list){ANIMS={};list.forEach(function(a){ANIMS[a.id]=a});buildMoves()},toast:toast};
+if(ME.admin&&/[?&]studio=1/.test(location.search)){var sc=document.createElement('script');sc.src='/studio.js';document.body.appendChild(sc)}
 function toggleSmoke(){if(!me)return;me.smk=me.smk?0:1;var b=$('smkBtn');b.setAttribute('aria-pressed',me.smk?'true':'false');toast(me.smk?'Lit up. Press 1 to put it out.':'Cigarette put out.')}
 var actors={};
 function addActor(i){
@@ -792,6 +808,7 @@ function countOnline(){var n=0;for(var k in actors)if(!actors[k].bot)n++;$('onli
 
 /* ---------- me ---------- */
 var me=null,seated=null,zoom=null,keys={},yaw=0,typing=false;
+var AN=window.CLAnims,ANIMS={},STU={on:false,pose:null};
 var myId=ME.username;
 
 /* ---------- chat ---------- */
@@ -816,7 +833,7 @@ function connect(){
       log.innerHTML='';m.chat.forEach(addChat);countOnline();(m.bj||[]).forEach(bjApply);
     }else if(m.t==='join'){addActor(m.p);countOnline()}
     else if(m.t==='leave'){removeActor(m.id);countOnline()}
-    else if(m.t==='state'){m.p.concat(m.b).forEach(function(p){var a=actors[p.id];if(!a||a===me)return;a.tx=p.x;a.tz=p.z;a.tr=p.r;a.mv=p.mv;a.seat=p.seat;a.smk=p.smk?1:0})}
+    else if(m.t==='state'){m.p.concat(m.b).forEach(function(p){var a=actors[p.id];if(!a||a===me)return;a.tx=p.x;a.tz=p.z;a.tr=p.r;a.mv=p.mv;a.seat=p.seat;a.smk=p.smk?1:0;a.an=p.an||''})}
     else if(m.t==='whack'){
       var by=actors[m.by];if(by&&by!==me)by.swing=.5;
       m.hits.forEach(function(h){var v=actors[h.id];if(!v)return;v.stun=1.1;
@@ -909,6 +926,7 @@ addEventListener('keydown',function(e){
   if(k==='h'&&!e.repeat&&!mailOpen){whack();return}
   if(k==='v'&&!e.repeat&&!mailOpen){setFp(!fp);return}
   if(k==='1'&&!e.repeat&&!mailOpen){toggleSmoke();return}
+  if(/^[2-9]$/.test(k)&&!e.repeat&&!mailOpen){var mvA=moveByKey(k);if(mvA){playMove(mvA.id);return}}
   if(k==='g'&&!e.repeat&&!mailOpen){$('vanBtn').click();return}
   if(k==='p'&&!e.repeat){clean=!clean;document.body.classList.toggle('clean',clean);return}
   if(mailOpen)return;
@@ -1088,11 +1106,12 @@ function frame0(){
     if(me.kb){var kf=Math.min(1,dt/.14),kx=me.kb.x*kf,kz=me.kb.z*kf,P0=me.g.position;
       if(!L.blocked(lw,P0.x+kx,P0.z+kz)){P0.x+=kx;P0.z+=kz}else if(!L.blocked(lw,P0.x+kx,P0.z))P0.x+=kx;else if(!L.blocked(lw,P0.x,P0.z+kz))P0.z+=kz;
       me.kb.x-=kx;me.kb.z-=kz;if(Math.hypot(me.kb.x,me.kb.z)<.05)me.kb=null}
-    if(seated||zoom||me.stun>0){me.mv=0}else step(me,cs*dx+sn*dz,-sn*dx+cs*dz,dt,3.6);
+    if(me.an&&(me.mv||seated||zoom||me.stun>0))me.an='';
+    if(seated||zoom||me.stun>0||STU.on){me.mv=0}else step(me,cs*dx+sn*dz,-sn*dx+cs*dz,dt,3.6);
     if(fp&&!seated&&!zoom&&me.stun<=0){var fa=yaw+Math.PI,fd=Math.atan2(Math.sin(fa-me.g.rotation.y),Math.cos(fa-me.g.rotation.y));me.g.rotation.y+=fd*Math.min(1,dt*14)}
     me.seat=seated?(seated.lie?2:1):0;
-    var P=me.g.position,key=P.x.toFixed(2)+','+P.z.toFixed(2)+','+me.g.rotation.y.toFixed(2)+','+me.seat+me.mv+'s'+(me.smk?1:0),now=performance.now();
-    if(ws&&ws.readyState===1&&(key!==lastSent&&now-lastSentAt>90||now-lastSentAt>1500)){ws.send(JSON.stringify({t:'pose',x:+P.x.toFixed(2),z:+P.z.toFixed(2),r:+me.g.rotation.y.toFixed(2),seat:me.seat,mv:me.mv,smk:me.smk?1:0}));lastSent=key;lastSentAt=now}
+    var P=me.g.position,key=P.x.toFixed(2)+','+P.z.toFixed(2)+','+me.g.rotation.y.toFixed(2)+','+me.seat+me.mv+'s'+(me.smk?1:0)+'a'+(me.an||''),now=performance.now();
+    if(ws&&ws.readyState===1&&(key!==lastSent&&now-lastSentAt>90||now-lastSentAt>1500)){ws.send(JSON.stringify({t:'pose',x:+P.x.toFixed(2),z:+P.z.toFixed(2),r:+me.g.rotation.y.toFixed(2),seat:me.seat,mv:me.mv,smk:me.smk?1:0,an:me.an||''}));lastSent=key;lastSentAt=now}
   }
   for(var id in actors){
     var a=actors[id],u=a.g.userData,sit=!!a.seat,lie=a.seat===2;
@@ -1120,6 +1139,17 @@ function frame0(){
       [0,1].forEach(function(ai){var fa=u.arms[ai].children[1];if(fa){fa.rotation.x=-.28*(1-kk);fa.rotation.z=(ai?1:-1)*1.45*kk}})}
     else{u.inner.position.z=0;u.legs[0].rotation.z=0;u.legs[1].rotation.z=0;[0,1].forEach(function(ai){var fa=u.arms[ai].children[1];if(fa){fa.rotation.x=-.28;fa.rotation.z=0}})}
     if(a.tag)a.tag.position.y=3.35-(a.lieK||0)*.6;
+    var pv=null;
+    if(a===me&&STU.pose)pv=STU.pose;
+    else if(a.an&&ANIMS[a.an]&&!a.seat){var an0=ANIMS[a.an];if(a.anSeen!==a.an){a.anSeen=a.an;a.anT=t}var el0=(t-a.anT)*an0.speed;
+      if(an0.loop||el0<=an0.dur)pv=AN.sample(an0,el0);else if(a===me){me.an='';me.anSeen=null}}
+    else a.anSeen=null;
+    if(pv){u.pv=pv;u.inner.position.y+=pv.rootY;u.inner.rotation.x+=pv.bodyX;u.inner.rotation.y=pv.bodyY;u.inner.rotation.z+=pv.bodyZ;
+      u.head.rotation.x=pv.headX;u.head.rotation.y=pv.headY;u.head.rotation.z=pv.headZ;
+      u.arms[0].rotation.x=-pv.aRx;u.arms[0].rotation.z=.12-pv.aRz;u.arms[1].rotation.x=-pv.aLx;u.arms[1].rotation.z=-.12+pv.aLz;
+      var f0=u.arms[0].children[1],f1=u.arms[1].children[1];if(f0){f0.rotation.x=-pv.fRx;f0.rotation.z=pv.fRz}if(f1){f1.rotation.x=-pv.fLx;f1.rotation.z=-pv.fLz}
+      u.legs[0].rotation.x=-pv.lRx;u.legs[0].rotation.z=-pv.lRz;u.legs[1].rotation.x=-pv.lLx;u.legs[1].rotation.z=pv.lLz}
+    else if(u.pv){u.pv=null;u.inner.rotation.y=0;u.head.rotation.x=0;u.head.rotation.y=0}
     if(u.sync)u.sync(sit&&!(a.lieK>.5));
     smokeActor(a,u,dt,t);
   }
@@ -1136,7 +1166,8 @@ function frame0(){
     if(zoom){var th=zoom.o.rot*Math.PI/2,bp=zoom.g.position;var zy=zoom.kind==='news'?2.7:3.1;want.set(bp.x+Math.sin(th)*4.8,zy+.1,bp.z+Math.cos(th)*4.8);lk.set(bp.x-Math.sin(th)*.4,zy,bp.z-Math.cos(th)*.4)}
     else if(seated&&seated.bj&&bjTables[seated.bj.id]){var btb=bjTables[seated.bj.id],bth=btb.o.rot*Math.PI/2,bp2=btb.g.position;var slx=2.6;want.set(bp2.x+Math.sin(bth)*4.4+Math.cos(bth)*slx,8,bp2.z+Math.cos(bth)*4.4-Math.sin(bth)*slx);lk.set(bp2.x-Math.sin(bth)*.2,.9,bp2.z-Math.cos(bth)*.2)}
     else if(seated){var sh=seated.theta;want.set(Q.x+Math.sin(sh)*5.5,10,Q.z+Math.cos(sh)*5.5);lk.set(Q.x,seated.lie?1.4:2.6,Q.z)}
-    if(fp&&!zoom){var cy=seated?(seated.lie?1.9:2.6):2.45,cp=Math.cos(pitch),dxv=-Math.sin(yaw)*cp,dzv=-Math.cos(yaw)*cp,dyv=-Math.sin(pitch);want.set(Q.x+dxv*.3,cy,Q.z+dzv*.3);lk.set(want.x+dxv*6,cy+dyv*6,want.z+dzv*6)}
+    if(STU.on){var sr=me.g.rotation.y;want.set(Q.x+Math.sin(sr)*5.2,3.2,Q.z+Math.cos(sr)*5.2);lk.set(Q.x,1.9,Q.z)}
+    else if(fp&&!zoom){var cy=seated?(seated.lie?1.9:2.6):2.45,cp=Math.cos(pitch),dxv=-Math.sin(yaw)*cp,dzv=-Math.cos(yaw)*cp,dyv=-Math.sin(pitch);want.set(Q.x+dxv*.3,cy,Q.z+dzv*.3);lk.set(want.x+dxv*6,cy+dyv*6,want.z+dzv*6)}
     camPos.lerp(want,fp&&!zoom?1:Math.min(1,dt*(zoom?4:3)));cam.position.copy(camPos);look.lerp(lk,fp&&!zoom?1:Math.min(1,dt*4));cam.lookAt(look);
     /* walls between the camera and the room drop low so the room stays visible */
     var vx=camPos.x-look.x,vz=camPos.z-look.z,vl=Math.hypot(vx,vz)||1;vx/=vl;vz/=vl;

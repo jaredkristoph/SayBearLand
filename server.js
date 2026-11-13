@@ -6,6 +6,7 @@ const { createStore } = require('./lib/store');
 const http = require('http');
 const A = require('./lib/auth');
 const L = require('./public/layout.js');
+const AN = require('./public/anims.js');
 const { createWorld } = require('./lib/world');
 const { createNightfloat } = require('./lib/nightfloat');
 const { createWordly } = require('./lib/wordly');
@@ -274,6 +275,23 @@ function createApp(store = createStore(), env = process.env) {
     await store.set('layout', v.layout);
     await world.reload(); world.refreshClients();
     res.json({ layout: v.layout });
+  }));
+  // Character moves: poses and animations made in the admin Animation studio, playable by everyone.
+  const getAnims = async () => { const a = await store.get('anims'); return Array.isArray(a) ? a : JSON.parse(JSON.stringify(AN.STARTERS)); };
+  app.get('/api/anims', wrap(requireUser), wrap(async (req, res) => res.json({ anims: await getAnims() })));
+  app.put('/api/admin/anims', wrap(requireUser), requireAdmin, wrap(async (req, res) => {
+    const list = await getAnims(), v = AN.sanitize(req.body && req.body.anim, list);
+    if (v.error) return res.status(400).json({ error: v.error });
+    const i = list.findIndex((x) => x.id === v.anim.id);
+    if (i >= 0) list[i] = v.anim; else { if (list.length >= 40) return res.status(400).json({ error: 'Too many moves (40 max). Delete one first.' }); list.push(v.anim); }
+    await store.set('anims', list);
+    res.json({ anims: list, anim: v.anim });
+  }));
+  app.post('/api/admin/anims/delete', wrap(requireUser), requireAdmin, wrap(async (req, res) => {
+    const id = String((req.body && req.body.id) || '');
+    const list = (await getAnims()).filter((x) => x.id !== id);
+    await store.set('anims', list);
+    res.json({ anims: list });
   }));
   // Saved layouts: named copies the admin can load back into the editor later.
   const presetInfo = (x) => ({ id: x.id, name: x.name, savedAt: x.savedAt, w: x.layout.w, h: x.layout.h });
