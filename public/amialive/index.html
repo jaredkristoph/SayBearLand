@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#050507">
+<title>Am I Alive?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,700;1,500&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#050507;--ink:#e8e4da;--dim:#8c8a96;--candle:#f2c879;--blood:#b3443f;--cold:#7fa3d6;--panel:rgba(12,12,18,.82);--line:rgba(232,228,218,.18);
+--disp:'Cormorant Garamond',Georgia,serif;--ui:'Special Elite','Courier New',monospace}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.4 var(--ui);overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--candle);outline-offset:2px}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#c{display:block;width:100vw;height:56.25vw;max-height:100vh;max-width:177.78vh;cursor:default;transition:filter 3s ease-out}
+#c.blur{filter:blur(14px) brightness(.5)}
+#c.hot{cursor:pointer}
+.hud{position:fixed;z-index:3}
+#hudL{left:max(14px,env(safe-area-inset-left));top:max(12px,env(safe-area-inset-top));min-width:210px}
+#hudL .t{font:italic 500 20px var(--disp);letter-spacing:.05em;color:var(--ink)}
+#hudL .s{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-top:1px}
+#pbar{height:5px;background:rgba(255,255,255,.1);margin-top:8px;border-radius:3px;overflow:hidden}
+#pbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c88f3c,var(--candle));transition:width .8s ease}
+#pnum{font-size:12px;margin-top:4px;color:var(--candle);font-variant-numeric:tabular-nums}
+#hudR{right:max(14px,env(safe-area-inset-right));top:max(12px,env(safe-area-inset-top));display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 12px;font-size:13px;letter-spacing:.04em}
+.chip:hover{border-color:var(--candle)}
+#toast{position:fixed;top:60px;right:max(14px,env(safe-area-inset-right));z-index:4;font-size:13px;color:var(--candle);opacity:0;transition:opacity .4s;pointer-events:none}
+#toast.on{opacity:1}
+#msg{position:fixed;left:50%;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 92px);transform:translateX(-50%);z-index:3;max-width:min(760px,calc(100vw - 32px));text-align:center;font:italic 500 22px/1.35 var(--disp);color:#f4efe3;text-shadow:0 2px 12px #000,0 0 3px #000;opacity:0;transition:opacity .5s;pointer-events:none}
+#msg.on{opacity:1}
+#tip{position:fixed;left:50%;top:max(14px,env(safe-area-inset-top));transform:translateX(-50%);z-index:3;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--cold);opacity:0;transition:opacity .2s;pointer-events:none}
+#tip.on{opacity:.9}
+.nav{position:fixed;top:50%;z-index:3;transform:translateY(-50%);width:56px;height:96px;display:flex;align-items:center;justify-content:center;background:linear-gradient(90deg,rgba(0,0,0,.45),transparent);border:0;color:var(--ink);font-size:34px;opacity:.65}
+.nav:hover{opacity:1}
+#prev{left:0;padding-left:max(0px,env(safe-area-inset-left))}
+#next{right:0;transform:translateY(-50%) scaleX(-1);padding-left:max(0px,env(safe-area-inset-right))}
+#vname{position:fixed;left:50%;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 70px);transform:translateX(-50%);z-index:3;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--dim)}
+#inv{position:fixed;left:50%;bottom:max(12px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:3;display:flex;gap:8px;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:10px;max-width:calc(100vw - 24px);overflow-x:auto}
+.slot{flex:0 0 auto;width:56px;height:56px;border:1px solid var(--line);border-radius:6px;background:rgba(255,255,255,.03);padding:0;display:block}
+.slot canvas{display:block;width:100%;height:100%}
+.slot.sel{border-color:var(--candle);box-shadow:0 0 0 1px var(--candle),0 0 14px rgba(242,200,121,.35)}
+.slot.empty{opacity:.35;cursor:default}
+#hint{position:fixed;left:50%;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 84px);transform:translateX(-50%);z-index:2;font-size:11px;color:var(--dim);opacity:0;transition:opacity .4s;pointer-events:none;white-space:nowrap}
+.layer{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;text-align:center;background:rgba(3,3,6,.9);padding:24px}
+.layer[hidden]{display:none}
+#title h1{font:italic 700 clamp(46px,9vw,104px)/1 var(--disp);letter-spacing:.06em;margin:0;color:#f4efe3;text-shadow:0 0 28px rgba(242,200,121,.25);animation:fl 6s infinite}
+#title p{margin:10px 0 28px;font-size:12px;letter-spacing:.34em;text-transform:uppercase;color:var(--dim)}
+@keyframes fl{0%,92%,100%{opacity:1}93%{opacity:.5}94%{opacity:1}96%{opacity:.35}97%{opacity:1}}
+.menu{display:flex;flex-direction:column;gap:10px;align-items:center}
+.big{min-width:240px;padding:11px 22px;background:transparent;border:1px solid var(--line);border-radius:4px;font-size:16px;letter-spacing:.1em}
+.big:hover{border-color:var(--candle);color:var(--candle)}
+.big small{display:block;font-size:11px;color:var(--dim);letter-spacing:.04em;margin-top:2px}
+#acct{margin-top:26px;font-size:12px;color:var(--dim);max-width:420px}
+#acct a{color:var(--cold)}
+#code .box{background:#0d0d13;border:1px solid var(--line);border-radius:10px;padding:22px 26px}
+#code h2{margin:0 0 4px;font:italic 500 26px var(--disp)}
+#code p{margin:0 0 14px;font-size:12px;color:var(--dim)}
+#wheels{display:flex;gap:10px;justify-content:center;margin-bottom:16px}
+.wheel{display:flex;flex-direction:column;gap:4px;align-items:center}
+.wheel button{width:48px;height:28px;background:transparent;border:1px solid var(--line);border-radius:4px;font-size:12px}
+.wheel output{display:block;width:48px;padding:8px 0;font:700 30px var(--disp);background:linear-gradient(#2a2214,#4a3a1c,#2a2214);color:var(--candle);border:1px solid #6b5426;border-radius:4px}
+#code .row{display:flex;gap:10px;justify-content:center}
+#end .card{max-width:560px}
+#end h2{font:italic 700 clamp(34px,6vw,56px) var(--disp);margin:0 0 6px;letter-spacing:.04em}
+#end .k{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--candle)}
+#end p{font:italic 500 21px/1.5 var(--disp);color:#e6e0d2;margin:16px 0}
+#end .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+#flash{position:fixed;inset:0;z-index:9;background:#fff;opacity:0;pointer-events:none;transition:opacity 1.6s ease}
+#flash.on{opacity:1}
+@media (max-width:640px){#hudL{min-width:150px}#hudL .t{font-size:17px}#msg{font-size:18px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 84px)}.slot{width:48px;height:48px}.chip{padding:5px 9px;font-size:12px}}
+@media (prefers-reduced-motion:reduce){#title h1{animation:none}}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c" width="1600" height="900" aria-label="The room you woke up in. Click things to look at them."></canvas></div>
+
+<div class="hud" id="hudL" hidden><div class="t">Am I Alive?</div><div class="s">Phase 1 · The room</div><div id="pbar"><i></i></div><div id="pnum" role="status">Escape 0%</div></div>
+<div class="hud" id="hudR" hidden><button class="chip" id="saveBtn" type="button">Save</button><button class="chip" id="sndBtn" type="button" aria-pressed="true">Sound on</button><button class="chip" id="menuBtn" type="button">Menu</button></div>
+<div id="toast" role="status"></div>
+<div id="tip"></div>
+<div id="msg" role="status" aria-live="polite"></div>
+<button class="nav" id="prev" type="button" aria-label="Turn left" hidden>&#10094;</button>
+<button class="nav" id="next" type="button" aria-label="Turn right" hidden>&#10094;</button>
+<div id="vname"></div>
+<div id="hint"></div>
+<div id="inv" hidden aria-label="Items"></div>
+
+<div class="layer" id="title">
+  <div>
+    <h1>Am I Alive?</h1>
+    <p>Phase 1 · The room</p>
+    <div class="menu">
+      <button class="big" id="cont" type="button" hidden>Continue<small id="contSub"></small></button>
+      <button class="big" id="newg" type="button">New game</button>
+    </div>
+    <div id="acct"></div>
+  </div>
+</div>
+
+<div class="layer" id="code" hidden>
+  <div class="box" role="dialog" aria-label="Drawer lock">
+    <h2>Four wheels</h2><p>A small brass lock holds the drawer shut.</p>
+    <div id="wheels"></div>
+    <div class="row"><button class="big" id="tryCode" type="button" style="min-width:110px">Try</button><button class="big" id="noCode" type="button" style="min-width:110px">Close</button></div>
+  </div>
+</div>
+
+<div class="layer" id="pause" hidden>
+  <div class="menu"><h2 style="font:italic 500 34px var(--disp);margin:0 0 8px">Paused</h2>
+    <button class="big" id="resume" type="button">Back to the room</button>
+    <button class="big" id="toTitle" type="button">Title screen</button>
+    <button class="big" id="wipe" type="button">Erase my saved game</button>
+  </div>
+</div>
+
+<div class="layer" id="end" hidden>
+  <div class="card">
+    <div class="k">Phase 1 complete · Escape 100%</div>
+    <h2>The Room</h2>
+    <p>The hallway is longer than the whole house. At the far end the white light hums the lullaby from the music box. I know every note.</p>
+    <p>I still do not know the answer.<br>Am I alive?</p>
+    <div class="k" style="color:var(--dim)">Phase 2 is coming</div>
+    <div class="row"><button class="big" id="replay" type="button" style="min-width:180px">Play again</button><button class="big" id="endTitle" type="button" style="min-width:180px">Title screen</button></div>
+  </div>
+</div>
+<div id="flash"></div>
+
+<script src="core.js"></script><script src="art.js"></script><script src="game.js"></script>
+</body>
+</html>

@@ -7,6 +7,7 @@ const http = require('http');
 const A = require('./lib/auth');
 const L = require('./public/layout.js');
 const AN = require('./public/anims.js');
+const AIA = require('./public/amialive/core.js');
 const { createWorld } = require('./lib/world');
 const { createNightfloat } = require('./lib/nightfloat');
 const { createWordly } = require('./lib/wordly');
@@ -276,6 +277,19 @@ function createApp(store = createStore(), env = process.env) {
     await world.reload(); world.refreshClients();
     res.json({ layout: v.layout });
   }));
+  // Am I Alive? (/amialive): one cloud save per SayBearLand account, on top of the save kept in the browser.
+  app.get('/api/amialive/save', wrap(requireUser), wrap(async (req, res) => {
+    const rec = await store.get(`aia:save:${req.user.username}`);
+    res.json(rec ? { state: rec.state, savedAt: rec.savedAt } : { state: null });
+  }));
+  app.put('/api/amialive/save', wrap(requireUser), wrap(async (req, res) => {
+    const state = AIA.sanitize(req.body && req.body.state);
+    if (!state) return res.status(400).json({ error: 'Bad save.' });
+    const savedAt = Date.now();
+    await store.set(`aia:save:${req.user.username}`, { state, savedAt });
+    res.json({ ok: true, savedAt });
+  }));
+  app.delete('/api/amialive/save', wrap(requireUser), wrap(async (req, res) => { await store.del(`aia:save:${req.user.username}`); res.json({ ok: true }); }));
   // Character moves: poses and animations made in the admin Animation studio, playable by everyone.
   const getAnims = async () => { const a = await store.get('anims'); return Array.isArray(a) ? a : JSON.parse(JSON.stringify(AN.STARTERS)); };
   app.get('/api/anims', wrap(requireUser), wrap(async (req, res) => res.json({ anims: await getAnims() })));
