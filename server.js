@@ -12,6 +12,7 @@ const LH = require('./public/livinghell/core.js');
 const NBA = require('./lib/nba.js');
 const NBABETS = require('./lib/nbabets.js');
 const NBABACK = require('./lib/nbaback.js');
+const NBAPROPS = require('./lib/nbaprops.js');
 const { createWorld } = require('./lib/world');
 const { createNightfloat } = require('./lib/nightfloat');
 const { createWordly } = require('./lib/wordly');
@@ -299,7 +300,11 @@ function createApp(store = createStore(), env = process.env, deps = {}) {
   }));
 
   // Play-money betting: $1000 of pretend cash per account, priced on the server, settled from final scores.
-  const nbaBets = NBABETS.createBets(store, nbaBot);
+  const nbaProps = NBAPROPS.createProps(nbaBot);
+  const propErr = (res, e) => (e.status ? res.status(e.status).json({ error: e.message }) : res.status(502).json({ error: 'Could not load player stats right now. Try again in a minute.' }));
+  app.get('/api/nba/props', wrap(async (req, res) => { try { res.json(await nbaProps.players(String(req.query.date || NBA.easternDate(1)))); } catch (e) { propErr(res, e); } }));
+  app.get('/api/nba/player', wrap(async (req, res) => { try { res.json(await nbaProps.detail(String(req.query.date || NBA.easternDate(1)), String(req.query.gameId || ''), String(req.query.id || ''))); } catch (e) { propErr(res, e); } }));
+  const nbaBets = NBABETS.createBets(store, nbaBot, undefined, nbaProps);
   const nbaWrap = (fn) => wrap(async (req, res) => { try { res.json(await fn(req)); } catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); res.status(502).json({ error: 'Could not reach the NBA data feed. Try again in a minute.' }); } });
   app.get('/api/nba/wallet', wrap(requireUser), nbaWrap((req) => nbaBets.wallet(req.user.username)));
   app.post('/api/nba/bet', wrap(requireUser), nbaWrap((req) => nbaBets.place(req.user.username, String(req.body.date || ''), req.body.legs, req.body.stake)));

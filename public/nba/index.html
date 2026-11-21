@@ -34,6 +34,9 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 .auth{display:flex;flex-direction:column;gap:8px;min-width:260px;flex:1;max-width:420px}.auth .tabs{display:flex;gap:6px}.auth input{width:100%}
 .tabs button{flex:1;background:var(--bg);color:var(--tx);border:1px solid var(--line)}.tabs button.on{background:var(--acc);color:#1a0e03;border-color:var(--acc)}
 .pwbox{background:var(--bg);border:1px dashed var(--acc);border-radius:8px;padding:8px;font-family:ui-monospace,monospace;font-size:16px;letter-spacing:1px;text-align:center}
+.pl{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}.pl button{background:var(--bg);color:var(--tx);border:1px solid var(--line);font-weight:500;padding:5px 9px;font-size:13px}.pl button.out{opacity:.5;text-decoration:line-through}
+.gh{font-weight:700;margin-top:10px}.gh small{color:var(--mut);font-weight:400}
+#pp{border-color:var(--acc);margin:10px 0}#pp h2{margin:0}.pn{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.pn input{width:84px;padding:5px 7px}
 .bet{border-top:1px solid var(--line);padding:9px 0;font-size:13px}.err{color:var(--low);font-size:13px}
 </style></head><body><main>
 <h1>NBA <span>Parlay Bot</span></h1>
@@ -46,6 +49,8 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 <div class="wal" id="wal">Checking your wallet…</div>
 <div id="notes"></div><div id="out"><div class="empty">Loading tomorrow's slate…</div></div>
 <div id="slip"></div>
+<h3>Players <small style="color:var(--mut);font-weight:400">· press a name for projected stats in the next game</small></h3>
+<div class="p"><input id="psearch" placeholder="Search a player…" style="width:100%;margin-bottom:6px"><div id="pp" class="p" hidden></div><div id="plist"><div class="empty">Loading players…</div></div></div>
 <h3>Backtest <small style="color:var(--mut);font-weight:400">· would the model have hit on past days?</small></h3>
 <div class="p"><div class="bar" style="margin:0 0 10px"><label>From<input id="bf" type="date"></label><label>To<input id="bt" type="date"></label><button id="bgo">Run backtest</button></div><div id="bres"><div class="empty">Replays the same formula on finished days, using only what was known before each day. Up to 31 days.</div></div></div>
 <h3>My bets</h3><div id="bets" class="p"><div class="empty">Sign in to see your bets.</div></div>
@@ -66,7 +71,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   function api(method, path, body) { return fetch(path, { method: method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(j.error || 'Failed'); e.status = r.status; throw e; } return j; }); }); }
 
   /* ---- slip ---- */
-  function key(l) { return l.gameId + '|' + l.type + '|' + l.pick; }
+  function key(l) { return l.gameId + '|' + l.type + '|' + l.pick + '|' + (l.playerId || '') + (l.stat || ''); }
   function find(gameId, type, pick) { // the price of a pick, from the board the server sent
     var g = data.games.filter(function (x) { return x.gameId === gameId; })[0]; if (!g || !g.odds) return null; var o = g.odds;
     if (type === 'total') return o.total ? { gameId: gameId, type: type, pick: pick, label: (pick === 'OVER' ? 'Over ' : 'Under ') + o.total, sub: g.away.abbr + ' @ ' + g.home.abbr, odds: -110 } : null;
@@ -77,6 +82,42 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
     var same = slip.filter(function (x) { return key(x) === key(l); }).length;
     slip = slip.filter(function (x) { return x.gameId !== gameId; }); if (!same) slip.push(l); if (slip.length > 6) slip.shift(); renderAll();
   }
+  /* ---- players ---- */
+  var plist = null, openP = null;
+  function phi(z) { var t = 1 / (1 + .2316419 * Math.abs(z)), d = .3989423 * Math.exp(-z * z / 2), p = d * t * (.3193815 + t * (-.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - p : p; }
+  function addProp(gameId, st, key2, side) {
+    var d = openP, s2 = d.projection.stats[key2], l = { gameId: gameId, type: 'prop', pick: side, playerId: d.player.id, stat: key2, line: s2.line, odds: -110, label: d.player.name + ' ' + (side === 'OVER' ? 'over ' : 'under ') + s2.line + ' ' + s2.name, sub: d.opponent.abbr === d.team.abbr ? '' : (d.home ? d.opponent.abbr + ' @ ' + d.team.abbr : d.team.abbr + ' @ ' + d.opponent.abbr) };
+    var same = slip.filter(function (x) { return key(x) === key(l); }).length; slip = slip.filter(function (x) { return x.gameId !== gameId; }); if (!same) slip.push(l); if (slip.length > 6) slip.shift(); slipMsg = ''; renderSlip(); renderPlayerPanel();
+  }
+  function renderPlayerPanel() {
+    var box = $('pp'); if (!openP) { box.hidden = true; return; } var d = openP, pj = d.projection; box.hidden = false;
+    var head = '<h2>' + esc(d.player.name) + ' <small style="color:var(--mut);font-weight:400">' + esc(d.player.pos) + ' · ' + esc(d.team.abbr) + ' ' + (d.home ? 'vs' : '@') + ' ' + esc(d.opponent.abbr) + '</small> <button class="ghost" id="ppx" style="float:right">Close</button></h2>' + (d.player.out ? '<div class="note">ESPN lists this player as OUT.</div>' : '');
+    if (!pj) { box.innerHTML = head + '<div class="empty">Not enough games on record this season to project this player.</div>'; $('ppx').onclick = closeP; return; }
+    var rows = ['PTS', 'REB', 'AST', 'TPM'].map(function (k) { var s2 = pj.stats[k], on = function (side) { return slip.some(function (l) { return l.playerId === d.player.id && l.stat === k && l.pick === side; }) ? ' on' : ''; };
+      return '<tr><td><b>' + esc(s2.name) + '</b></td><td><b>' + s2.proj + '</b></td><td>' + s2.low + '–' + s2.high + '</td><td>' + s2.last10 + ' / ' + s2.season + '</td><td><button class="ob' + on('OVER') + '" data-k="' + k + '" data-s="OVER">Over ' + s2.line + ' · ' + pct(s2.pOver) + '</button> <button class="ob' + on('UNDER') + '" data-k="' + k + '" data-s="UNDER">Under ' + s2.line + ' · ' + pct(1 - s2.pOver) + '</button></td><td class="pn"><input type="number" step="0.5" data-c="' + k + '" placeholder="line"><span data-r="' + k + '" style="color:var(--mut);font-size:12px"></span></td></tr>'; }).join('');
+    box.innerHTML = head + (d.state !== 'pre' ? '<div class="note">This game has already started, so bets are closed.</div>' : '') + pj.warnings.map(function (w) { return '<div class="note">' + esc(w) + '</div>'; }).join('') +
+      '<table><tr><th>Stat</th><th>Projection</th><th>Typical range</th><th>Last 10 / season</th><th>Model line (−110, play money)</th><th>Check a line</th></tr>' + rows + '</table>' +
+      '<h3 style="margin:14px 0 6px;font-size:14px">Last ' + d.recent.length + ' games</h3><table><tr><th>Date</th><th></th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>3PM</th></tr>' + d.recent.map(function (g) { return '<tr><td>' + esc((g.date || '').slice(5, 10)) + '</td><td>' + (g.home === null ? '' : g.home ? 'vs ' : '@ ') + esc(g.opp) + '</td><td>' + g.MIN + '</td><td>' + g.PTS + '</td><td>' + g.REB + '</td><td>' + g.AST + '</td><td>' + g.TPM + '</td></tr>'; }).join('') + '</table>' +
+      '<div class="fine">These are the model\'s own projections from recent games, not sportsbook lines. They ignore injuries, minutes changes and matchups.</div>';
+    $('ppx').onclick = closeP;
+    Array.prototype.forEach.call(box.querySelectorAll('.ob'), function (b) { b.onclick = function () { if (d.state === 'pre') addProp(d.gameId, d.state, b.dataset.k, b.dataset.s); }; });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-c]'), function (i) { i.oninput = function () { var s2 = pj.stats[i.dataset.c], v = parseFloat(i.value), r = box.querySelector('[data-r="' + i.dataset.c + '"]'); if (isNaN(v)) { r.textContent = ''; return; } var po = 1 - phi((v - s2.proj) / s2.sd); r.textContent = 'Over ' + pct(po) + ' · Under ' + pct(1 - po); }; });
+  }
+  function closeP() { openP = null; renderPlayerPanel(); }
+  function openPlayer(gameId, id) {
+    $('pp').hidden = false; $('pp').innerHTML = '<div class="empty">Loading stats…</div>';
+    api('GET', '/api/nba/player?date=' + encodeURIComponent(data.date) + '&gameId=' + encodeURIComponent(gameId) + '&id=' + encodeURIComponent(id)).then(function (d) { openP = d; renderPlayerPanel(); $('pp').scrollIntoView({ block: 'nearest' }); }).catch(function (e) { $('pp').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  }
+  function renderPlayers() {
+    if (!plist) return; var q = ($('psearch').value || '').toLowerCase().trim();
+    $('plist').innerHTML = plist.games.length ? plist.games.map(function (g) {
+      var btn = function (p) { return (!q || p.name.toLowerCase().indexOf(q) >= 0) ? '<button class="' + (p.out ? 'out' : '') + '" data-pg="' + g.gameId + '" data-pl="' + p.id + '">' + esc(p.name) + '</button>' : ''; };
+      return '<div class="gh">' + esc(g.away.name) + ' @ ' + esc(g.home.name) + ' <small>' + tip(g.start) + '</small></div><div class="pl">' + g.awayPlayers.map(btn).join('') + '<span style="width:100%"></span>' + g.homePlayers.map(btn).join('') + '</div>'; }).join('') : '<div class="empty">No games to show players for.</div>';
+    Array.prototype.forEach.call($('plist').querySelectorAll('[data-pl]'), function (b) { b.onclick = function () { openPlayer(b.dataset.pg, b.dataset.pl); }; });
+  }
+  function loadPlayers() { plist = null; openP = null; renderPlayerPanel(); $('plist').innerHTML = '<div class="empty">Loading players…</div>'; api('GET', '/api/nba/props?date=' + encodeURIComponent($('date').value)).then(function (j) { plist = j; renderPlayers(); }).catch(function (e) { $('plist').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }); }
+  $('psearch').oninput = renderPlayers;
+
   function renderSlip() {
     if (!slip.length) { $('slip').innerHTML = slipMsg ? '<div class="slip">' + slipMsg + '</div>' : ''; return; }
     var d = slip.reduce(function (a, l) { return a * dec(l.odds); }, 1), st = Number($('stake') ? $('stake').value : 10) || 10;
@@ -90,7 +131,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   }
   function place() {
     var b = $('place'); b.disabled = true;
-    api('POST', '/api/nba/bet', { date: data.date, stake: Number($('stake').value), legs: slip.map(function (l) { return { gameId: l.gameId, type: l.type, pick: l.pick }; }) })
+    api('POST', '/api/nba/bet', { date: data.date, stake: Number($('stake').value), legs: slip.map(function (l) { return { gameId: l.gameId, type: l.type, pick: l.pick, side: l.pick, playerId: l.playerId, stat: l.stat, line: l.line }; }) })
       .then(function (w) { wallet = w; slip = []; slipMsg = 'Bet placed. Good luck!'; renderAll(); renderLeaders(); }).catch(function (e) { slipMsg = e.message; b.disabled = false; renderAll(); });
   }
 
@@ -98,7 +139,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   function leg(l) { return '<div class="leg"><div><span class="g g' + l.grade + '">' + l.grade + '</span> <b>' + esc(l.label) + '</b><small>' + (l.type === 'ml' ? 'vs ' : '') + esc(l.vs) + ' · ' + esc(l.source) + '</small></div><div class="pr"><b>' + pct(l.prob) + '</b><small>' + odds(l.odds) + (l.estimatedOdds && l.type === 'ml' ? ' est.' : '') + '</small></div></div>'; }
   function parlay(p, i) { return '<div class="p"><h2>' + esc(p.name) + ' <b>' + odds(p.american) + '</b></h2><div class="bl">' + esc(p.blurb) + '</div>' + p.legs.map(leg).join('') +
     '<div class="sum"><div><b>' + pct(p.prob) + '</b>chance</div><div><b>1 in ' + p.hitOneIn + '</b>hits</div><div><b>$' + (10 * p.decimal).toFixed(0) + '</b>on $10</div></div><div style="margin-top:10px"><button data-p="' + i + '">Add to slip</button></div></div>'; }
-  function onBtn(g, type, pick, txt) { var on = slip.some(function (l) { return key(l) === g.gameId + '|' + type + '|' + pick; }); return '<button class="ob' + (on ? ' on' : '') + '" data-g="' + g.gameId + '" data-t="' + type + '" data-k="' + pick + '">' + txt + '</button>'; }
+  function onBtn(g, type, pick, txt) { var on = slip.some(function (l) { return key(l) === g.gameId + '|' + type + '|' + pick + '|'; }); return '<button class="ob' + (on ? ' on' : '') + '" data-g="' + g.gameId + '" data-t="' + type + '" data-k="' + pick + '">' + txt + '</button>'; }
   function games(gs) { if (!gs.length) return ''; return '<h3>The slate <small style="color:var(--mut);font-weight:400">· tap a price to build your own slip</small></h3><table><tr><th>Tip</th><th>Game</th><th>Moneyline</th><th>Total</th><th>Model margin</th></tr>' + gs.map(function (g) {
     var o = g.odds || {}; return '<tr><td>' + tip(g.start) + '</td><td>' + esc(g.away.abbr) + ' @ ' + esc(g.home.abbr) + '</td><td>' + (o.awayML ? onBtn(g, 'ml', g.away.abbr, esc(g.away.abbr) + ' ' + odds(o.awayML)) : '–') + ' ' + (o.homeML ? onBtn(g, 'ml', g.home.abbr, esc(g.home.abbr) + ' ' + odds(o.homeML)) : '') + '</td><td>' + (o.total ? onBtn(g, 'total', 'OVER', 'O ' + o.total) + ' ' + onBtn(g, 'total', 'UNDER', 'U ' + o.total) : '–') + '</td><td>' + (g.model ? (g.model.margin > 0 ? esc(g.home.abbr) + ' by ' + g.model.margin : esc(g.away.abbr) + ' by ' + (-g.model.margin).toFixed(1)) : '–') + '</td></tr>'; }).join('') + '</table>'; }
   function renderBoard() {
@@ -148,7 +189,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 
   function run() {
     var b = $('go'); b.disabled = true; $('out').innerHTML = '<div class="empty">Reading the lines…</div>'; $('notes').innerHTML = ''; slip = [];
-    api('GET', '/api/nba/parlay?date=' + encodeURIComponent($('date').value) + '&legs=' + $('legs').value).then(function (j) { data = j; renderAll(); }).catch(function (e) { $('out').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).then(function () { b.disabled = false; });
+    api('GET', '/api/nba/parlay?date=' + encodeURIComponent($('date').value) + '&legs=' + $('legs').value).then(function (j) { data = j; renderAll(); loadPlayers(); }).catch(function (e) { $('out').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).then(function () { b.disabled = false; });
   }
   function runBack() {
     var b = $('bgo'); b.disabled = true; $('bres').innerHTML = '<div class="empty">Replaying past days… this can take a few seconds.</div>';
