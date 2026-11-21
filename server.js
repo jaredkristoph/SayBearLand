@@ -11,6 +11,7 @@ const AIA = require('./public/amialive/core.js');
 const LH = require('./public/livinghell/core.js');
 const NBA = require('./lib/nba.js');
 const NBABETS = require('./lib/nbabets.js');
+const NBABACK = require('./lib/nbaback.js');
 const { createWorld } = require('./lib/world');
 const { createNightfloat } = require('./lib/nightfloat');
 const { createWordly } = require('./lib/wordly');
@@ -286,6 +287,15 @@ function createApp(store = createStore(), env = process.env, deps = {}) {
     const legs = Math.max(2, Math.min(6, parseInt(req.query.legs, 10) || 3));
     try { res.json(await nbaBot.parlay(String(req.query.date || ''), legs)); }
     catch (e) { res.status(502).json({ error: 'Could not reach the NBA data feed. Try again in a minute.' }); }
+  }));
+
+  // Backtest: replay the model over past days. Cached an hour per range, and ESPN is only asked about each day once.
+  const backCache = new Map();
+  app.get('/api/nba/backtest', wrap(async (req, res) => {
+    const to = String(req.query.to || NBA.easternDate(-1)), from = String(req.query.from || NBABACK.addDays(to, -13)), k = from + '|' + to, hit = backCache.get(k);
+    if (hit && Date.now() - hit.t < 3600e3) return res.json(hit.v);
+    try { const v = await NBABACK.backtest(nbaBot, from, to); backCache.set(k, { t: Date.now(), v }); if (backCache.size > 20) backCache.delete(backCache.keys().next().value); res.json(v); }
+    catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); res.status(502).json({ error: 'Could not reach the NBA data feed. Try again in a minute.' }); }
   }));
 
   // Play-money betting: $1000 of pretend cash per account, priced on the server, settled from final scores.
