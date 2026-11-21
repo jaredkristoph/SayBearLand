@@ -47,6 +47,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   <label>Slate date<input id="date" type="date"></label>
   <label>Legs in the safest parlay<select id="legs"><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label>
   <label>Bet type<select id="btype"><option value="all">Everything</option><option value="total">Over/under only</option><option value="ml">Moneyline only</option></select></label>
+  <label>Over/under formula<select id="bmodel"><option value="team">Team ratings</option><option value="player">Player model (NBA)</option></select></label>
   <button id="go">Build parlays</button>
 </div>
 <div class="wal" id="wal">Checking your wallet…</div>
@@ -197,14 +198,22 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 
   function run() {
     var b = $('go'); b.disabled = true; $('out').innerHTML = '<div class="empty">Reading the lines…</div>'; $('notes').innerHTML = '';
-    api('GET', (sport === 'all' ? '/api/all/parlay?' : '/api/sports/' + sport + '/parlay?') + 'date=' + encodeURIComponent($('date').value) + '&legs=' + $('legs').value + '&type=' + $('btype').value).then(function (j) { data = j; renderAll(); if (sport === 'nba') loadPlayers(); }).catch(function (e) { $('out').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).then(function () { b.disabled = false; });
+    api('GET', (sport === 'all' ? '/api/all/parlay?' : '/api/sports/' + sport + '/parlay?') + 'date=' + encodeURIComponent($('date').value) + '&legs=' + $('legs').value + '&type=' + $('btype').value + '&model=' + $('bmodel').value).then(function (j) { data = j; renderAll(); if (sport === 'nba') loadPlayers(); }).catch(function (e) { $('out').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).then(function () { b.disabled = false; });
+  }
+  function playerPanel(m) {
+    var row = function (n, t, extra) { return '<tr><td>' + n + '</td><td>' + t.bets + '</td><td>' + (t.hitRate == null ? '–' : pct(t.hitRate)) + '</td><td>' + (t.predicted == null ? '–' : pct(t.predicted)) + '</td>' + (extra || '') + '</tr>'; };
+    return '<div class="p" style="border-color:var(--acc);margin-bottom:10px"><b>Player model vs team formula</b> <small style="color:var(--mut)">(NBA over/unders, same ' + m.games + ' games)</small>' +
+      '<table><tr><th>Formula</th><th>Bets</th><th>Actually hit</th><th>Said</th></tr>' + row('Player model', m.overall) + row('Team ratings', m.teamFormula) + '</table>' +
+      '<div style="margin:8px 0 4px;color:var(--mut);font-size:13px">Hit rate by how far the player model sits from the sportsbook line (break-even at −110 is 52.4%):</div>' +
+      '<table><tr><th>Gap from line</th><th>Bets</th><th>Actually hit</th><th>Said</th></tr>' + m.buckets.map(function (b) { return row(esc(b.label), b); }).join('') + '</table>' +
+      (m.missing ? '<div class="fine">' + m.missing + ' games skipped: not enough player data.</div>' : '') + '</div>';
   }
   function runBack() {
     var b = $('bgo'); b.disabled = true; $('bres').innerHTML = '<div class="empty">Replaying past days… this can take a few seconds.</div>';
-    api('GET', '/api/nba/backtest?from=' + $('bf').value + '&to=' + $('bt').value + '&sports=' + sport + '&type=' + $('btype').value).then(function (j) {
+    api('GET', '/api/nba/backtest?from=' + $('bf').value + '&to=' + $('bt').value + '&sports=' + sport + '&type=' + $('btype').value + '&model=' + $('bmodel').value).then(function (j) {
       var lg = function (n, t) { return '<tr><td>' + n + '</td><td>' + t.bets + '</td><td>' + (t.hitRate == null ? '–' : pct(t.hitRate)) + '</td><td>' + (t.predicted == null ? '–' : pct(t.predicted)) + '</td></tr>'; };
       $('bres').innerHTML = '<div class="note" style="color:var(--tx);background:var(--bg);border-color:var(--line)">' + j.days + ' days' + (j.type === 'total' ? ' · over/under only' : j.type === 'ml' ? ' · moneyline only' : '') + ' · ' + j.games + ' games · ' + j.gamesWithLines + ' with stored lines (' + j.lineSources.scoreboard + ' from the scoreboard, ' + j.lineSources.perGame + ' from the per-game odds feed, ' + j.lineSources.none + ' not found)</div>' +
-        (j.partial ? '<div class="note">Still collecting lines for ' + j.pendingLines + ' games. Press Run backtest again in a minute to continue; what is shown so far is partial.</div>' : '') +
+        (j.playerModel ? playerPanel(j.playerModel) : '') + (j.partial ? '<div class="note">Still collecting lines for ' + j.pendingLines + ' games. Press Run backtest again in a minute to continue; what is shown so far is partial.</div>' : '') +
         '<table><tr><th>Legs</th><th>Bets</th><th>Actually hit</th><th>Model said</th></tr>' + lg('Moneyline', j.legs.moneyline) + lg('Over/under', j.legs.total) + (j.mixed ? j.bySport.map(function (x) { return lg(esc(x.label) + ' moneyline', x.moneyline) + lg(esc(x.label) + ' over/under', x.total); }).join('') : '') + j.byGrade.map(function (g) { return lg('Grade ' + g.grade, g); }).join('') + '</table>' +
         '<h3 style="margin-top:16px">' + (j.mixed ? 'Mixed-sport parlays' : 'Parlays') + ' (3 legs, one ticket a day)</h3>' + (j.parlays.length ? '<table><tr><th>Type</th><th>Tickets</th><th>Hit</th><th>Model said</th><th>ROI per $1</th></tr>' + j.parlays.map(function (p) { return '<tr><td>' + esc(p.id) + (j.mixed && p.mixedTickets ? ' <small style="color:var(--mut)">(' + p.mixedTickets + ' mixed)</small>' : '') + '</td><td>' + p.tickets + '</td><td>' + p.hits + ' (' + pct(p.hitRate) + ')</td><td>' + pct(p.predicted) + '</td><td class="' + (p.roi >= 0 ? 'st-won' : 'st-lost') + '">' + (p.roi >= 0 ? '+' : '') + p.roi.toFixed(2) + '</td></tr>'; }).join('') + '</table>' : '<div class="empty">No settled parlays in this range (ESPN may not have kept lines for these dates).</div>') +
         '<div class="fine">' + j.notes.map(esc).join('<br>') + '</div>';
@@ -214,6 +223,6 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   function loadWallet() { return api('GET', '/api/nba/wallet').then(function (w) { wallet = w; }); }
   api('GET', '/api/me').then(function (j) { me = j.user; return loadWallet(); }).catch(function () { me = null; }).then(function () { renderWallet(); renderLeaders(); });
   setInterval(function () { if (me) loadWallet().then(renderWallet).catch(function () {}); }, 90000);
-  renderTabs(); $('date').value = eastern(1); $('go').onclick = run; $('date').onchange = function () { slip = []; run(); }; $('legs').onchange = run; $('btype').onchange = function () { run(); if ($('bres').querySelector('table')) runBack(); }; run();
+  renderTabs(); $('date').value = eastern(1); $('go').onclick = run; $('date').onchange = function () { slip = []; run(); }; $('legs').onchange = run; $('btype').onchange = $('bmodel').onchange = function () { run(); if ($('bres').querySelector('table')) runBack(); }; run();
 })();
 </script></body></html>
