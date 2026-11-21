@@ -19,7 +19,7 @@ const full = TOT.teamPoints(team), starOut = TOT.teamPoints(team.map((p, i) => (
 assert.ok(full > 105 && full < 125); assert.ok(starOut < full); assert.ok(full - starOut < .7 * 34 * 1.0); ok('a star missing lowers the total, by less than his own scoring (his minutes go to teammates)');
 assert.equal(TOT.teamPoints(team.slice(0, 5)), null); ok('fewer than six players: no model');
 const g = { gameId: 'g1', home: { abbr: 'BOS' }, away: { abbr: 'WAS' } };
-let leg = TOT.totalLeg(g, { total: 230 }, 220.5); assert.equal(leg.pick, 'OVER'); assert.equal(leg.type, 'total'); assert.equal(leg.model, 'player'); assert.ok(leg.prob > .6 && leg.prob < .8); let u = TOT.totalLeg(g, { total: 215 }, 220.5); assert.equal(u.pick, 'UNDER'); assert.ok(TOT.totalLeg(g, { total: 221 }, 220.5).prob < leg.prob); ok('over/under leg: side follows the gap, bigger gap means higher chance');
+let leg = TOT.totalLeg(g, { total: 230 }, 220.5); assert.equal(leg.pick, 'OVER'); assert.equal(leg.type, 'total'); assert.equal(leg.model, 'player'); assert.ok(leg.prob > .52 && leg.prob < .7); let u = TOT.totalLeg(g, { total: 215 }, 220.5); assert.equal(u.pick, 'UNDER'); assert.ok(TOT.totalLeg(g, { total: 221 }, 220.5).prob < leg.prob); ok('over/under leg: side follows the gap, bigger gap means higher chance');
 
 // ---- through ESPN-shaped data ----
 const labels = ['MIN', 'FG', 'FG%', '3PT', '3P%', 'FT', 'FT%', 'REB', 'AST', 'BLK', 'STL', 'PF', 'TO', 'PTS'];
@@ -49,6 +49,13 @@ const fetchFx = async (u) => {
   const bucket = r.playerModel.buckets.find((b) => b.bets === 1); assert.ok(bucket && /points/.test(bucket.label)); assert.ok(r.playerModel.teamFormula.bets === 1); ok('results are bucketed by how far the model is from the line, with the team formula alongside');
   assert.equal(r.parlays.length >= 0, true); ok('parlays still build');
   const plain = await BT.backtest(bot, '2026-11-10', '2026-11-10', ['nba'], { type: 'total' }); assert.equal(plain.playerModel, undefined); ok('without the player model nothing changes');
+  // error margins, straight-bet profit, minimum gap, halves
+  const w = BT.wilson(54, 103); assert.ok(w[0] > .42 && w[0] < .44 && w[1] > .61 && w[1] < .63); assert.deepEqual(BT.wilson(0, 0), [null, null]); assert.equal(BT.wilson(10, 10)[1], 1); ok('95% range on a hit rate: 54 of 103 is anywhere from about 43% to 62%');
+  const sm = BT.summarize({ n: 100, won: 55, lost: 45, push: 0, predSum: 58 }, true); assert.equal(sm.roi, .05); assert.equal(BT.summarize({ n: 100, won: 50, lost: 50, push: 0, predSum: 50 }, true).roi, -.045); assert.equal(BT.summarize({ n: 0, won: 0, lost: 0, push: 0, predSum: 0 }, true).roi, undefined); ok('straight-bet profit at -110: 55 of 100 earns +0.05 per $1, a coin flip loses 4.5 cents');
+  r = await BT.backtest(bot, '2026-11-10', '2026-11-10', ['nba'], { model: 'player', props, type: 'total', minGap: 30 }); assert.equal(r.playerModel.minGap, 30); assert.equal(r.playerModel.games, 1); assert.equal(r.parlays.length, 0); ok('a minimum gap keeps small-gap games out of the parlays but still counts them in the stats');
+  assert.equal(r.playerModel.halves.first.bets, 1); assert.equal(r.playerModel.halves.second.bets, 0); ok('6+ point bets are split into first and second half of the period');
+  const b2 = { games: [{ gameId: 'a1', state: 'pre', start: START, home: { id: '1', abbr: 'BOS', name: 'Boston' }, away: { id: '2', abbr: 'WAS', name: 'Washington' }, odds: { total: 220.5, homeML: -300, awayML: 250 }, legs: [{ type: 'total', gameId: 'a1', pick: 'UNDER', prob: .51, odds: -110, edge: 0 }] }], parlays: [], notes: [] };
+  TOT.applyTotals(b2, { a1: { total: 240 } }, 3, 'total', 100); assert.equal(b2.games[0].legs.filter((l) => l.type === 'total').length, 0); ok('live board: a game under the minimum gap offers no over/under');
   const slow = await BT.backtest(N.createBot(fetchFx), '2026-11-10', '2026-11-10', ['nba'], { model: 'player', props: P.createProps(N.createBot(fetchFx)), budgetMs: -1 }); assert.equal(slow.partial, true); ok('out of time: marked partial instead of guessing');
 
   const server = http.createServer(createApp(memoryStore(), { SESSION_SECRET: 's' }, { nbaFetch: fetchFx })); await new Promise((r2) => server.listen(0, r2)); const base = `http://127.0.0.1:${server.address().port}`;

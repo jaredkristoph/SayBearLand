@@ -31,7 +31,7 @@ const fetchFx = async (u) => { const m = /dates=(\d{8})/.exec(u); return (m && d
   // no look-ahead: day 1 numbers must not include day 1 scores
   const seen = []; const spy = N.createBot(fetchFx); const orig = N.rateGame; N.rateGame = (gm, st) => { seen.push(Object.keys(st).length); return orig(gm, st); };
   await BT.backtest(spy, '2026-11-10', '2026-11-11'); N.rateGame = orig; assert.ok(seen.every((n) => n === 0)); ok('team numbers never use the day being tested (too few earlier games, so market only)');
-  await assert.rejects(() => BT.backtest(bot, '2026-11-10', '2026-12-31')); await assert.rejects(() => BT.backtest(bot, 'x', '2026-11-10')); await assert.rejects(() => BT.backtest(bot, '2026-11-12', '2026-11-10')); ok('bad or huge ranges are refused');
+  await assert.rejects(() => BT.backtest(bot, '2026-09-01', '2026-12-31')); await assert.rejects(() => BT.backtest(bot, 'x', '2026-11-10')); await assert.rejects(() => BT.backtest(bot, '2026-11-12', '2026-11-10')); ok('bad or huge ranges are refused');
 
   // ESPN drops lines from finished games on the scoreboard: they come from the per-game odds feed instead
   const bare = (id, h, a, hs, as) => g(id, h, a, hs, as, null);

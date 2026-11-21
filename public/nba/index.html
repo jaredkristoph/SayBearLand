@@ -48,6 +48,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   <label>Legs in the safest parlay<select id="legs"><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label>
   <label>Bet type<select id="btype"><option value="all">Everything</option><option value="total">Over/under only</option><option value="ml">Moneyline only</option></select></label>
   <label>Over/under formula<select id="bmodel"><option value="team">Team ratings</option><option value="player">Player model (NBA)</option></select></label>
+  <label>Min gap from line<input id="mgap" type="number" min="0" max="15" step="0.5" value="0" style="width:90px" title="Player model only: skip over/unders where the model is closer to the line than this many points"></label>
   <button id="go">Build parlays</button>
 </div>
 <div class="wal" id="wal">Checking your wallet…</div>
@@ -59,7 +60,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 </div>
 <div id="backs">
 <h3>Backtest <small style="color:var(--mut);font-weight:400">· would the model have hit on past days?</small></h3>
-<div class="p"><div class="bar" style="margin:0 0 10px"><label>From<input id="bf" type="date"></label><label>To<input id="bt" type="date"></label><button id="bgo">Run backtest</button></div><div id="bres"><div class="empty">Replays the same formula on finished days, using only what was known before each day. Up to 31 days.</div></div></div>
+<div class="p"><div class="bar" style="margin:0 0 10px"><label>From<input id="bf" type="date"></label><label>To<input id="bt" type="date"></label><button id="bgo">Run backtest</button></div><div id="bres"><div class="empty">Replays the same formula on finished days, using only what was known before each day. Up to 62 days.</div></div></div>
 </div>
 <h3>My bets</h3><div id="bets" class="p"><div class="empty">Sign in to see your bets.</div></div>
 <h3>Leaderboard</h3><div id="board" class="p"><div class="empty">Sign in to see the leaderboard.</div></div>
@@ -198,20 +199,25 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 
   function run() {
     var b = $('go'); b.disabled = true; $('out').innerHTML = '<div class="empty">Reading the lines…</div>'; $('notes').innerHTML = '';
-    api('GET', (sport === 'all' ? '/api/all/parlay?' : '/api/sports/' + sport + '/parlay?') + 'date=' + encodeURIComponent($('date').value) + '&legs=' + $('legs').value + '&type=' + $('btype').value + '&model=' + $('bmodel').value).then(function (j) { data = j; renderAll(); if (sport === 'nba') loadPlayers(); }).catch(function (e) { $('out').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).then(function () { b.disabled = false; });
+    api('GET', (sport === 'all' ? '/api/all/parlay?' : '/api/sports/' + sport + '/parlay?') + 'date=' + encodeURIComponent($('date').value) + '&legs=' + $('legs').value + '&type=' + $('btype').value + '&model=' + $('bmodel').value + '&minGap=' + ($('mgap').value || 0)).then(function (j) { data = j; renderAll(); if (sport === 'nba') loadPlayers(); }).catch(function (e) { $('out').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).then(function () { b.disabled = false; });
   }
+  function ci(t) { return t.hitRate == null ? '–' : pct(t.hitRate) + ' <small style="color:var(--mut)">(' + pct(t.lo) + '–' + pct(t.hi) + ')</small>'; }
+  function roiCell(t) { return t.roi == null ? '–' : '<span class="' + (t.roi >= 0 ? 'st-won' : 'st-lost') + '">' + (t.roi >= 0 ? '+' : '') + t.roi.toFixed(2) + '</span>'; }
   function playerPanel(m) {
-    var row = function (n, t, extra) { return '<tr><td>' + n + '</td><td>' + t.bets + '</td><td>' + (t.hitRate == null ? '–' : pct(t.hitRate)) + '</td><td>' + (t.predicted == null ? '–' : pct(t.predicted)) + '</td>' + (extra || '') + '</tr>'; };
-    return '<div class="p" style="border-color:var(--acc);margin-bottom:10px"><b>Player model vs team formula</b> <small style="color:var(--mut)">(NBA over/unders, same ' + m.games + ' games)</small>' +
-      '<table><tr><th>Formula</th><th>Bets</th><th>Actually hit</th><th>Said</th></tr>' + row('Player model', m.overall) + row('Team ratings', m.teamFormula) + '</table>' +
-      '<div style="margin:8px 0 4px;color:var(--mut);font-size:13px">Hit rate by how far the player model sits from the sportsbook line (break-even at −110 is 52.4%):</div>' +
-      '<table><tr><th>Gap from line</th><th>Bets</th><th>Actually hit</th><th>Said</th></tr>' + m.buckets.map(function (b) { return row(esc(b.label), b); }).join('') + '</table>' +
-      (m.missing ? '<div class="fine">' + m.missing + ' games skipped: not enough player data.</div>' : '') + '</div>';
+    var row = function (n, t) { return '<tr><td>' + n + '</td><td>' + t.bets + '</td><td>' + ci(t) + '</td><td>' + (t.predicted == null ? '–' : pct(t.predicted)) + '</td><td>' + roiCell(t) + '</td></tr>'; };
+    var hv = m.halves, early = hv.first, late = hv.second;
+    return '<div class="p" style="border-color:var(--acc);margin-bottom:10px"><b>Player model vs team formula</b> <small style="color:var(--mut)">(NBA over/unders, same ' + m.games + ' games' + (m.minGap ? ', only gaps of ' + m.minGap + '+ points' : '') + ')</small>' +
+      '<table><tr><th>Formula</th><th>Bets</th><th>Hit (95% range)</th><th>Said</th><th>Profit per $1 straight bet</th></tr>' + row('Player model', m.overall) + row('Team ratings', m.teamFormula) + '</table>' +
+      '<div style="margin:8px 0 4px;color:var(--mut);font-size:13px">By how far the player model sits from the sportsbook line (break-even at −110 is 52.4%):</div>' +
+      '<table><tr><th>Gap from line</th><th>Bets</th><th>Hit (95% range)</th><th>Said</th><th>Profit per $1</th></tr>' + m.buckets.map(function (b) { return row(esc(b.label), b); }).join('') + '</table>' +
+      '<div style="margin:10px 0 4px;color:var(--mut);font-size:13px">Does the 6+ point edge hold in both halves of the period? A real edge shows up in both:</div>' +
+      '<table><tr><th>6+ point gaps</th><th>Bets</th><th>Hit (95% range)</th><th>Said</th><th>Profit per $1</th></tr>' + row('First half', early) + row('Second half', late) + '</table>' +
+      '<div class="fine">A result only counts if its whole range sits above 52.4%. A range that crosses it means "can\'t tell yet", whatever the middle number says. Around 500 bets are needed to tell 55% from 52%.' + (m.missing ? ' ' + m.missing + ' games skipped: not enough player data.' : '') + '</div></div>';
   }
   function runBack() {
     var b = $('bgo'); b.disabled = true; $('bres').innerHTML = '<div class="empty">Replaying past days… this can take a few seconds.</div>';
-    api('GET', '/api/nba/backtest?from=' + $('bf').value + '&to=' + $('bt').value + '&sports=' + sport + '&type=' + $('btype').value + '&model=' + $('bmodel').value).then(function (j) {
-      var lg = function (n, t) { return '<tr><td>' + n + '</td><td>' + t.bets + '</td><td>' + (t.hitRate == null ? '–' : pct(t.hitRate)) + '</td><td>' + (t.predicted == null ? '–' : pct(t.predicted)) + '</td></tr>'; };
+    api('GET', '/api/nba/backtest?from=' + $('bf').value + '&to=' + $('bt').value + '&sports=' + sport + '&type=' + $('btype').value + '&model=' + $('bmodel').value + '&minGap=' + ($('mgap').value || 0)).then(function (j) {
+      var lg = function (n, t) { return '<tr><td>' + n + '</td><td>' + t.bets + '</td><td>' + ci(t) + '</td><td>' + (t.predicted == null ? '–' : pct(t.predicted)) + '</td></tr>'; };
       $('bres').innerHTML = '<div class="note" style="color:var(--tx);background:var(--bg);border-color:var(--line)">' + j.days + ' days' + (j.type === 'total' ? ' · over/under only' : j.type === 'ml' ? ' · moneyline only' : '') + ' · ' + j.games + ' games · ' + j.gamesWithLines + ' with stored lines (' + j.lineSources.scoreboard + ' from the scoreboard, ' + j.lineSources.perGame + ' from the per-game odds feed, ' + j.lineSources.none + ' not found)</div>' +
         (j.playerModel ? playerPanel(j.playerModel) : '') + (j.partial ? '<div class="note">Still collecting lines for ' + j.pendingLines + ' games. Press Run backtest again in a minute to continue; what is shown so far is partial.</div>' : '') +
         '<table><tr><th>Legs</th><th>Bets</th><th>Actually hit</th><th>Model said</th></tr>' + lg('Moneyline', j.legs.moneyline) + lg('Over/under', j.legs.total) + (j.mixed ? j.bySport.map(function (x) { return lg(esc(x.label) + ' moneyline', x.moneyline) + lg(esc(x.label) + ' over/under', x.total); }).join('') : '') + j.byGrade.map(function (g) { return lg('Grade ' + g.grade, g); }).join('') + '</table>' +
@@ -223,6 +229,6 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   function loadWallet() { return api('GET', '/api/nba/wallet').then(function (w) { wallet = w; }); }
   api('GET', '/api/me').then(function (j) { me = j.user; return loadWallet(); }).catch(function () { me = null; }).then(function () { renderWallet(); renderLeaders(); });
   setInterval(function () { if (me) loadWallet().then(renderWallet).catch(function () {}); }, 90000);
-  renderTabs(); $('date').value = eastern(1); $('go').onclick = run; $('date').onchange = function () { slip = []; run(); }; $('legs').onchange = run; $('btype').onchange = $('bmodel').onchange = function () { run(); if ($('bres').querySelector('table')) runBack(); }; run();
+  renderTabs(); $('date').value = eastern(1); $('go').onclick = run; $('date').onchange = function () { slip = []; run(); }; $('legs').onchange = run; $('btype').onchange = $('bmodel').onchange = $('mgap').onchange = function () { run(); if ($('bres').querySelector('table')) runBack(); }; run();
 })();
 </script></body></html>
