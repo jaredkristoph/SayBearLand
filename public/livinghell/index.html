@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0405">
+<title>Living Hell</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0405;--ink:#f1e2cf;--dim:#a08a78;--ember:#ff5a2a;--blood:#c2261b;--gold:#f0b030;--panel1:#3b1612;--panel2:#1b0a0a;--edge:#7a2a1c;
+--px:'Pixelify Sans','Courier New',monospace;--vcr:'VT323','Courier New',monospace}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation;font-family:var(--px)}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+#shell{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#stage{position:relative;width:960px;height:540px;flex:0 0 auto;transform-origin:center center;overflow:hidden;background:#000}
+#c{position:absolute;inset:0;width:960px;height:540px;image-rendering:pixelated}
+.scan{position:absolute;inset:0;pointer-events:none;z-index:30;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px);mix-blend-mode:multiply}
+.vig{position:absolute;inset:0;pointer-events:none;z-index:29;background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.55) 100%)}
+#rec{position:absolute;left:16px;bottom:8px;z-index:31;font:20px var(--vcr);color:#e8e0d0;text-shadow:1px 0 #f33,-1px 0 #3cf;letter-spacing:.06em;pointer-events:none}
+#rec i{color:#f33;font-style:normal;animation:bl 1.2s steps(2) infinite}
+#tape{position:absolute;right:16px;bottom:8px;z-index:31;font:20px var(--vcr);color:#e8e0d0;text-shadow:1px 0 #f33,-1px 0 #3cf;pointer-events:none}
+@keyframes bl{50%{opacity:0}}
+.screen{position:absolute;inset:0;z-index:10}
+[hidden]{display:none!important}
+.panel{position:absolute;background:linear-gradient(135deg,var(--panel1),var(--panel2));border:3px solid var(--edge);box-shadow:inset 0 0 0 2px #0008,0 4px 0 #0009;padding:10px 12px;
+ clip-path:polygon(0 3%,2% 0,98% 1%,100% 4%,99% 96%,97% 100%,3% 99%,0 96%)}
+.panel h3{margin:0 0 6px;font:600 17px var(--px);color:var(--gold);letter-spacing:.04em;text-transform:lowercase}
+.btn{background:linear-gradient(#5a1d14,#2c0f0c);border:2px solid var(--edge);border-radius:2px;padding:4px 10px;font:600 16px var(--px);color:var(--ink);box-shadow:0 3px 0 #0008}
+.btn:hover:not(:disabled){border-color:var(--gold);color:#fff}
+.btn:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 #0008}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.big{padding:8px 26px;font-size:22px;letter-spacing:.1em;min-width:230px}
+.arrow{width:30px;height:28px;padding:0;border-radius:50%;font-size:14px;line-height:1}
+/* menu */
+#menu{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:12px;padding:0 0 30px 64px}
+#menu h1{margin:0;font:700 76px/1 var(--px);letter-spacing:.08em;color:#ffd9b0;text-shadow:3px 0 #e8301a,-3px 0 #1cc4ff,0 0 26px #ff3a10;animation:tear 7s infinite}
+#menu .sub{font:22px var(--vcr);letter-spacing:.4em;color:var(--dim);margin:0 0 18px;text-shadow:1px 0 #f33,-1px 0 #3cf}
+@keyframes tear{0%,93%,100%{transform:none;opacity:1}94%{transform:translateX(6px) skewX(8deg);opacity:.7}95%{transform:translateX(-5px)}96%{transform:none;opacity:.4}97%{opacity:1}}
+#menu .sel{display:flex;flex-direction:column;gap:10px;align-items:center;margin-top:6px}
+#menu small{display:block;font:15px var(--vcr);color:var(--dim);letter-spacing:.08em}
+#acct{position:absolute;left:0;right:0;bottom:34px;text-align:center;font:17px var(--vcr);color:var(--dim)}
+#acct a{color:#ff9a70}
+/* creator */
+#nameP{left:14px;top:12px;width:312px;height:78px}
+#nameP input{width:100%;margin-top:2px;background:#0006;border:2px solid #5a2418;padding:5px 8px;font:600 18px var(--px);color:#ffe9cf}
+#lookP{left:14px;top:96px;width:312px;height:196px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:6px;height:30px}
+.row label{font:600 17px var(--px);color:var(--ink)}
+.row .val{flex:1;text-align:center;font:600 15px var(--px);color:#ffcf9a;min-width:70px}
+.sw{display:inline-block;width:16px;height:16px;border:2px solid #000;vertical-align:-3px;margin-right:6px}
+#statP{left:14px;top:298px;width:312px;height:236px;padding-top:4px}
+.srow{display:flex;align-items:center;height:23px;gap:6px}
+.srow .n{width:92px;font:600 16px var(--px);text-align:right;color:var(--ink)}
+.srow .v{width:28px;font:700 20px var(--px);color:#fff;text-shadow:2px 0 #000,-2px 0 #000,0 2px #000,0 -2px #000;text-align:center}
+.srow button{width:22px;height:20px;padding:0;border-radius:50%;font-size:13px;line-height:1}
+.srow .bar{flex:1;height:6px;background:#0007;border:1px solid #000}.srow .bar i{display:block;height:100%;background:var(--ember)}
+#ptsP{left:336px;top:298px;width:122px;height:104px;text-align:center}
+#ptsP b{display:block;font:700 54px/1.1 var(--px);color:#fff;text-shadow:3px 0 #000,-3px 0 #000,0 3px #000,0 -3px #000}
+#goBtn{position:absolute;right:20px;bottom:36px}
+#goHint{position:absolute;right:20px;bottom:90px;font:16px var(--vcr);color:#ffb090;text-align:right;max-width:230px}
+#tipP{position:absolute;left:336px;top:410px;width:250px;font:17px/1.15 var(--vcr);color:#e8d8c4;background:#000a;padding:4px 6px;border-left:3px solid var(--edge)}
+/* dialogue */
+#dlg{display:flex;align-items:flex-end;justify-content:center;padding-bottom:30px}
+#dlgBox{position:relative;width:760px;height:118px;display:flex;gap:14px;align-items:flex-start;cursor:pointer}
+#dlgBox canvas{width:84px;height:84px;image-rendering:pixelated;border:2px solid var(--edge);background:#000;flex:0 0 auto}
+#dlgText{flex:1;font:24px/1.2 var(--vcr);color:#ffe9cf;letter-spacing:.05em;text-shadow:1px 0 #f33,-1px 0 #3cf;min-height:84px}
+#dlgNext{position:absolute;right:14px;bottom:6px;font:18px var(--vcr);color:var(--gold);animation:bl 1s steps(2) infinite}
+#dlgWho{position:absolute;left:112px;top:-14px;background:#000;border:2px solid var(--edge);padding:0 10px;font:600 15px var(--px);color:var(--ember);letter-spacing:.1em}
+/* fight HUD */
+.hud{position:absolute;top:10px;width:230px}
+.hud .nm{font:700 18px var(--px);color:#fff;text-shadow:2px 0 #000,-2px 0 #000,0 2px #000,0 -2px #000}
+.bar2{height:14px;background:#000a;border:2px solid #000;margin-top:3px;position:relative}.bar2 i{display:block;height:100%;transition:width .35s}
+.bar2 span{position:absolute;inset:0;text-align:center;font:600 11px/11px var(--px);color:#fff;text-shadow:1px 1px #000}
+.hp i{background:linear-gradient(#ff5340,#a3180f)}.sp i{background:linear-gradient(#ffd24a,#c58112)}
+.bar2.sm{height:11px}
+#hudP{left:12px}#hudE{right:12px;text-align:right}
+#coach{position:absolute;left:250px;top:10px;width:460px;min-height:62px;display:flex;gap:10px;align-items:flex-start;background:linear-gradient(135deg,#2a0c0a,#120606);border:2px solid var(--edge);padding:6px 10px}
+#coach canvas{width:44px;height:44px;image-rendering:pixelated;border:2px solid var(--edge);flex:0 0 auto;background:#000}
+#coachT{font:18px/1.05 var(--vcr);color:#ffe9cf;letter-spacing:.04em}
+#acts{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);display:flex;gap:8px;background:linear-gradient(transparent,#000a);padding:4px 6px 0}
+#acts .btn{display:flex;flex-direction:row;align-items:center;gap:6px;min-width:112px;height:34px;padding:3px 10px;font-size:14px;white-space:nowrap}
+#acts .btn small{font:15px var(--vcr);color:var(--gold)}#acts .btn kbd{display:none}
+#acts .btn kbd{font:13px var(--vcr);color:var(--dim)}
+#meter{position:absolute;left:50%;bottom:90px;transform:translateX(-50%);width:270px;height:34px;background:#000b;border:3px solid var(--edge);overflow:hidden}
+#meter[hidden]{display:none}
+#mGood{position:absolute;top:0;bottom:0;background:#8a5a14}
+#mPerf{position:absolute;top:0;bottom:0;background:#ffd24a;box-shadow:0 0 12px #ffd24a}
+#mMark{position:absolute;top:-2px;bottom:-2px;width:6px;background:#fff;box-shadow:0 0 8px #fff}
+#mTxt{position:absolute;left:50%;transform:translateX(-50%);bottom:132px;white-space:nowrap;font:700 20px var(--px);color:#ffd24a;text-shadow:2px 2px #000;letter-spacing:.08em}
+#blockBtn{position:absolute;left:50%;transform:translateX(-50%);bottom:90px;display:none}
+#blockBtn.on{display:block}
+#log{position:absolute;left:50%;top:104px;transform:translateX(-50%);font:20px var(--vcr);color:#ffd9b0;text-shadow:2px 2px #000;text-align:center;min-height:24px;pointer-events:none;letter-spacing:.06em}
+/* end */
+#endS{display:flex;align-items:center;justify-content:center;background:rgba(5,2,2,.88);text-align:center}
+#endS h2{margin:0;font:700 58px var(--px);color:#ffd9b0;text-shadow:3px 0 #e8301a,-3px 0 #1cc4ff;letter-spacing:.06em}
+#endS p{font:24px/1.25 var(--vcr);color:#e8d8c4;max-width:620px;margin:14px auto}
+#endS .k{font:20px var(--vcr);color:var(--ember);letter-spacing:.3em}
+#endS .row2{display:flex;gap:12px;justify-content:center;margin-top:18px}
+#pause{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(5,2,2,.9)}
+#pause h2{margin:0 0 6px;font:700 40px var(--px);color:#ffd9b0}
+#menuBtn{position:absolute;right:12px;top:66px;z-index:12;padding:2px 8px;font-size:13px}
+#toast{position:absolute;right:14px;top:44px;z-index:33;font:18px var(--vcr);color:var(--gold);opacity:0;transition:opacity .4s;pointer-events:none}
+#toast.on{opacity:1}
+#flash{position:absolute;inset:0;z-index:32;background:#fff;opacity:0;pointer-events:none}
+#load{position:absolute;inset:0;z-index:40;background:#000;display:flex;align-items:center;justify-content:center;font:22px var(--vcr);color:var(--dim);letter-spacing:.3em}
+#load[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){#menu h1{animation:none}}
+</style>
+</head>
+<body>
+<div id="shell"><div id="stage">
+  <canvas id="c" width="960" height="540" aria-label="Living Hell game screen"></canvas>
+  <div class="vig"></div><div class="scan"></div>
+  <div id="rec"><i>●</i> PLAY <span id="clock">00:03:07</span></div><div id="tape">TAPE 04 // DO NOT REWIND</div>
+  <div id="toast" role="status"></div><div id="flash"></div>
+
+  <div class="screen" id="menu" hidden>
+    <h1>LIVING HELL</h1><div class="sub">THE SUN IS SMILING</div>
+    <div class="sel"><button class="btn big" id="playBtn" type="button">PLAY</button><button class="btn big" id="contBtn" type="button" hidden>CONTINUE<small id="contSub"></small></button></div>
+    <div id="acct"></div>
+  </div>
+
+  <div class="screen" id="create" hidden>
+    <div class="panel" id="nameP"><h3>enter name below</h3><input id="nameIn" type="text" maxlength="14" autocomplete="off" spellcheck="false" aria-label="Your name" placeholder="who are you?"></div>
+    <div class="panel" id="lookP"><h3>your body</h3>
+      <div class="row"><label>skin colour</label><button class="btn arrow" data-k="skin" data-d="-1" type="button" aria-label="Previous skin colour">&#9664;</button><span class="val" id="vSkin"></span><button class="btn arrow" data-k="skin" data-d="1" type="button" aria-label="Next skin colour">&#9654;</button></div>
+      <div class="row"><label>hairstyle</label><button class="btn arrow" data-k="hair" data-d="-1" type="button" aria-label="Previous hairstyle">&#9664;</button><span class="val" id="vHair"></span><button class="btn arrow" data-k="hair" data-d="1" type="button" aria-label="Next hairstyle">&#9654;</button></div>
+      <div class="row"><label>hair colour</label><button class="btn arrow" data-k="hcol" data-d="-1" type="button" aria-label="Previous hair colour">&#9664;</button><span class="val" id="vHcol"></span><button class="btn arrow" data-k="hcol" data-d="1" type="button" aria-label="Next hair colour">&#9654;</button></div>
+      <div class="row"><label>stubble</label><button class="btn arrow" data-k="stub" data-d="-1" type="button" aria-label="Previous stubble">&#9664;</button><span class="val" id="vStub"></span><button class="btn arrow" data-k="stub" data-d="1" type="button" aria-label="Next stubble">&#9654;</button></div>
+      <div style="text-align:center;margin-top:6px"><button class="btn" id="randBtn" type="button">randomize</button></div>
+    </div>
+    <div class="panel" id="statP"></div>
+    <div class="panel" id="ptsP"><h3>skill points</h3><b id="pts">0</b></div>
+    <div id="tipP"></div>
+    <div id="goHint"></div><button class="btn big" id="goBtn" type="button">ENTER THE SUN</button>
+  </div>
+
+  <div class="screen" id="dlg" hidden><div id="dlgBox"><span id="dlgWho"></span><canvas id="dlgFace" width="64" height="64"></canvas><div id="dlgText"></div><span id="dlgNext">click &#9654;</span></div></div>
+
+  <div class="screen" id="fight" hidden>
+    <div class="hud" id="hudP"></div><div class="hud" id="hudE"></div>
+    <div id="coach"><canvas id="coachFace" width="64" height="64"></canvas><div id="coachT"></div></div>
+    <div id="log"></div><div id="mTxt"></div>
+    <div id="meter" hidden><div id="mGood"></div><div id="mPerf"></div><div id="mMark"></div></div>
+    <button class="btn big" id="blockBtn" type="button" style="min-width:140px">BLOCK</button>
+    <div id="acts"></div>
+  </div>
+
+  <div class="screen" id="endS" hidden><div>
+    <div class="k">PHASE 1 COMPLETE</div><h2>THE PIT</h2>
+    <p id="endText"></p>
+    <div class="row2"><button class="btn big" id="againBtn" type="button" style="min-width:190px">FIGHT AGAIN</button><button class="btn big" id="endMenu" type="button" style="min-width:190px">MENU</button></div>
+  </div></div>
+
+  <button class="btn" id="menuBtn" type="button" hidden>MENU</button>
+  <div class="screen" id="pause" hidden style="z-index:20"><h2>PAUSED</h2>
+    <button class="btn big" id="resume" type="button">RESUME</button><button class="btn big" id="sndBtn" type="button">SOUND ON</button><button class="btn big" id="toMenu" type="button">QUIT TO MENU</button><button class="btn big" id="wipe" type="button">ERASE SAVE</button></div>
+  <div id="load">LOADING TAPE...</div>
+</div></div>
+<script src="core.js"></script><script src="art.js"></script><script src="game.js"></script>
+</body>
+</html>
