@@ -31,6 +31,9 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 .slip .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:8px}.slip input{width:100px}
 .ob{cursor:pointer;background:var(--bg);border:1px solid var(--line);color:var(--tx);padding:3px 7px;border-radius:6px;font-weight:600;font-size:12px}.ob.on{background:var(--acc);color:#1a0e03;border-color:var(--acc)}
 .st-open{color:var(--mid)}.st-won{color:var(--good)}.st-lost{color:var(--low)}.st-void{color:var(--mut)}
+.auth{display:flex;flex-direction:column;gap:8px;min-width:260px;flex:1;max-width:420px}.auth .tabs{display:flex;gap:6px}.auth input{width:100%}
+.tabs button{flex:1;background:var(--bg);color:var(--tx);border:1px solid var(--line)}.tabs button.on{background:var(--acc);color:#1a0e03;border-color:var(--acc)}
+.pwbox{background:var(--bg);border:1px dashed var(--acc);border-radius:8px;padding:8px;font-family:ui-monospace,monospace;font-size:16px;letter-spacing:1px;text-align:center}
 .bet{border-top:1px solid var(--line);padding:9px 0;font-size:13px}.err{color:var(--low);font-size:13px}
 </style></head><body><main>
 <h1>NBA <span>Parlay Bot</span></h1>
@@ -104,11 +107,38 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
     Array.prototype.forEach.call(document.querySelectorAll('[data-p]'), function (b) { b.onclick = function () { var p = data.parlays[+b.dataset.p]; slip = p.legs.map(function (l) { return find(l.gameId, l.type, l.pick); }).filter(Boolean); slipMsg = ''; renderAll(); $('slip').scrollIntoView({ block: 'nearest' }); }; });
     Array.prototype.forEach.call(document.querySelectorAll('.ob'), function (b) { b.onclick = function () { toggle(b.dataset.g, b.dataset.t, b.dataset.k); }; });
   }
+  /* ---- sign in / create account, right here ---- */
+  var auth = { tab: 'login', msg: '', temp: null, pw: '' };
+  function renderAuth() {
+    var su = auth.tab === 'signup';
+    $('wal').innerHTML = '<div><b style="color:var(--tx)">Play money</b><br><small>Create an account or log in and you get $1,000 of pretend cash to bet with. Same account as the rest of SayBearLand.</small></div>' +
+      '<form class="auth" id="af"><div class="tabs"><button type="button" data-t="login" class="' + (su ? '' : 'on') + '">Log in</button><button type="button" data-t="signup" class="' + (su ? 'on' : '') + '">Create account</button></div>' +
+      '<input id="au" placeholder="username (3-20 letters, numbers, _)" autocomplete="username" required>' +
+      (su ? '<input id="an" placeholder="display name" maxlength="24" required>' : '<input id="ap" type="password" placeholder="password" autocomplete="current-password" required>') +
+      '<button id="ago">' + (su ? 'Create account' : 'Log in') + '</button>' + (auth.msg ? '<div class="err">' + esc(auth.msg) + '</div>' : '') + '</form>';
+    Array.prototype.forEach.call(document.querySelectorAll('.auth [data-t]'), function (b) { b.onclick = function () { auth.tab = b.dataset.t; auth.msg = ''; renderAuth(); }; });
+    $('af').onsubmit = function (e) { e.preventDefault(); $('ago').disabled = true; auth.msg = '';
+      var u = $('au').value.trim().toLowerCase();
+      var go = su ? api('POST', '/api/signup', { username: u, name: $('an').value, role: 'Tester' }).then(function (j) { auth.temp = j.temporaryPassword; return api('POST', '/api/login', { username: u, password: j.temporaryPassword }).then(function (r) { auth.pw = j.temporaryPassword; return r; }); })
+        : api('POST', '/api/login', { username: u, password: $('ap').value }).then(function (r) { auth.pw = $('ap').value; return r; });
+      go.then(function (r) { me = r.user; return me.mustChangePassword ? null : loadWallet(); }).then(function () { renderAll(); renderLeaders(); }).catch(function (er) { auth.msg = er.message; renderAuth(); });
+    };
+  }
+  function renderChange() {
+    $('wal').innerHTML = '<div><b style="color:var(--tx)">Welcome, ' + esc(me.name || me.username) + '!</b><br><small>' + (auth.temp ? 'Your account is made. Your temporary password is below: save it, then choose your own.' : 'Choose a new password to continue.') + '</small>' + (auth.temp ? '<div class="pwbox" style="margin-top:8px">' + esc(auth.temp) + '</div>' : '') + '</div>' +
+      '<form class="auth" id="cf"><input id="cn" type="password" placeholder="new password (8+ characters)" minlength="8" autocomplete="new-password" required><button id="cgo">Save password &amp; start betting</button>' + (auth.msg ? '<div class="err">' + esc(auth.msg) + '</div>' : '') + '</form>';
+    $('cf').onsubmit = function (e) { e.preventDefault(); $('cgo').disabled = true;
+      api('POST', '/api/change-password', { oldPassword: auth.pw, newPassword: $('cn').value }).then(function (r) { me = r.user; auth.temp = null; auth.msg = ''; return loadWallet(); }).then(function () { renderAll(); renderLeaders(); }).catch(function (er) { auth.msg = er.message; renderChange(); });
+    };
+  }
+  function logout() { api('POST', '/api/logout', {}).catch(function () {}).then(function () { me = null; wallet = null; slip = []; auth = { tab: 'login', msg: '', temp: null, pw: '' }; renderAll(); $('board').innerHTML = '<div class="empty">Sign in to see the leaderboard.</div>'; }); }
   function renderWallet() {
-    if (!me) { $('wal').innerHTML = '<div><b style="color:var(--tx)">Play money</b><br><small>Log in or create an account and you get $1,000 of pretend cash to bet with.</small></div><a href="/"><button>Log in / Create account</button></a>'; $('bets').innerHTML = '<div class="empty">Sign in to see your bets.</div>'; return; }
+    if (!me) { renderAuth(); $('bets').innerHTML = '<div class="empty">Sign in to see your bets.</div>'; return; }
+    if (me.mustChangePassword) { renderChange(); return; }
     if (!wallet) { $('wal').textContent = 'Loading your wallet…'; return; }
     var canRefill = wallet.balance < 1 && !wallet.open;
-    $('wal').innerHTML = '<div><small>' + esc(me.name || me.username) + ' · play money</small><br><b>' + usd(wallet.balance) + '</b> <small>' + (wallet.open ? wallet.open + ' open bet' + (wallet.open > 1 ? 's' : '') : '') + (wallet.refills ? ' · ' + wallet.refills + ' refill' + (wallet.refills > 1 ? 's' : '') : '') + '</small></div>' + (canRefill ? '<button id="refill">Refill to $1,000</button>' : '<small>Bets settle on their own once the games finish.</small>');
+    $('wal').innerHTML = '<div><small>' + esc(me.name || me.username) + ' · play money</small><br><b>' + usd(wallet.balance) + '</b> <small>' + (wallet.open ? wallet.open + ' open bet' + (wallet.open > 1 ? 's' : '') : '') + (wallet.refills ? ' · ' + wallet.refills + ' refill' + (wallet.refills > 1 ? 's' : '') : '') + '</small></div>' + (canRefill ? '<button id="refill">Refill to $1,000</button>' : '<div><small>Bets settle on their own once the games finish.</small> <button class="ghost" id="lo">Log out</button></div>');
+    if ($('lo')) $('lo').onclick = logout;
     if ($('refill')) $('refill').onclick = function () { api('POST', '/api/nba/refill').then(function (w) { wallet = w; renderAll(); }).catch(function (e) { slipMsg = e.message; renderAll(); }); };
     $('bets').innerHTML = wallet.bets.length ? wallet.bets.map(function (b) { return '<div class="bet"><b class="st-' + b.status + '">' + b.status.toUpperCase() + '</b> · ' + usd(b.stake) + ' to win ' + usd(b.toWin) + (b.status === 'won' ? ' · paid ' + usd(b.payout) : b.status === 'void' ? ' · refunded' : '') + ' <small style="color:var(--mut)">(' + esc(b.date) + ')</small>' +
       b.legs.map(function (l) { return '<div style="margin-left:12px;color:var(--mut)">' + (l.result === 'won' ? '✓ ' : l.result === 'lost' ? '✗ ' : l.result === 'push' ? '– ' : '· ') + esc(l.label) + ' (' + esc(l.away) + ' @ ' + esc(l.home) + ') ' + odds(l.odds) + '</div>'; }).join('') + '</div>'; }).join('') : '<div class="empty">No bets yet. Add a parlay to your slip.</div>';
