@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NBA Parlay Bot · SayBearLand</title>
+<style>
+:root{--bg:#0e1116;--card:#171c24;--line:#262d38;--tx:#e8ecf2;--mut:#8b96a7;--acc:#ff8a3d;--good:#3ecf8e;--mid:#e9c46a;--low:#e76f6f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:26px;margin:0 0 2px}h1 span{color:var(--acc)}.sub{color:var(--mut);margin:0 0 18px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:16px}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:4px}
+input,select,button{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:inherit}
+button{background:var(--acc);color:#1a0e03;border:0;font-weight:700;cursor:pointer}button:disabled{opacity:.5}
+.note{background:#2a2216;border:1px solid #4a3a1c;color:#e9d6a6;padding:10px 12px;border-radius:8px;margin:8px 0;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}
+.p{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.p h2{margin:0;font-size:18px;display:flex;justify-content:space-between;align-items:baseline}.p h2 b{color:var(--acc)}
+.p .bl{color:var(--mut);font-size:13px;margin:2px 0 10px}
+.leg{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
+.leg small{display:block;color:var(--mut)}.pr{text-align:right;white-space:nowrap}
+.g{display:inline-block;min-width:22px;text-align:center;border-radius:5px;font-weight:700;font-size:12px;padding:1px 5px;color:#10151b}
+.gA{background:var(--good)}.gB{background:#8ad66d}.gC{background:var(--mid)}.gD{background:var(--low)}
+.sum{display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:13px}.sum div{text-align:center}.sum b{display:block;font-size:17px}
+h3{margin:26px 0 8px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line)}th{color:var(--mut);font-weight:600}
+.empty{color:var(--mut);padding:30px 0;text-align:center}
+.fine{color:var(--mut);font-size:12px;margin-top:22px}
+</style></head><body><main>
+<h1>NBA <span>Parlay Bot</span></h1>
+<p class="sub">Moneyline and over/under legs, ranked by how likely they are. One leg per game.</p>
+<div class="bar">
+  <label>Slate date<input id="date" type="date"></label>
+  <label>Legs in the safest parlay<select id="legs"><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label>
+  <button id="go">Build parlays</button>
+</div>
+<div id="notes"></div><div id="out"><div class="empty">Loading tomorrow's slate…</div></div>
+<p class="fine">Probabilities blend the sportsbook line (vig removed) with each team's scoring numbers. This is a model, not a guarantee: a parlay needs every leg to hit, so even the safest ones lose more often than they win. Lines come from ESPN and are cached for about 10 minutes. 21+ and bet responsibly.</p>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function eastern(off) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + off * 864e5)); }
+  function odds(a) { return a > 0 ? '+' + a : String(a); }
+  function pct(p) { return Math.round(p * 100) + '%'; }
+  function tip(iso) { try { return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
+  function leg(l) { return '<div class="leg"><div><span class="g g' + l.grade + '">' + l.grade + '</span> <b>' + esc(l.label) + '</b><small>' + (l.type === 'ml' ? 'vs ' : '') + esc(l.vs) + ' · ' + esc(l.source) + '</small></div><div class="pr"><b>' + pct(l.prob) + '</b><small>' + odds(l.odds) + (l.estimatedOdds && l.type === 'ml' ? ' est.' : '') + '</small></div></div>'; }
+  function parlay(p) { return '<div class="p"><h2>' + esc(p.name) + ' <b>' + odds(p.american) + '</b></h2><div class="bl">' + esc(p.blurb) + '</div>' + p.legs.map(leg).join('') +
+    '<div class="sum"><div><b>' + pct(p.prob) + '</b>chance</div><div><b>1 in ' + p.hitOneIn + '</b>hits</div><div><b>$' + (10 * p.decimal).toFixed(0) + '</b>on $10</div></div></div>'; }
+  function games(gs) { if (!gs.length) return ''; return '<h3>The slate</h3><table><tr><th>Tip</th><th>Game</th><th>ML (A / H)</th><th>Total</th><th>Model margin</th></tr>' + gs.map(function (g) {
+    var o = g.odds || {}; return '<tr><td>' + tip(g.start) + '</td><td>' + esc(g.away.abbr) + ' @ ' + esc(g.home.abbr) + '</td><td>' + (o.awayML ? odds(o.awayML) : '–') + ' / ' + (o.homeML ? odds(o.homeML) : '–') + '</td><td>' + (o.total || '–') + '</td><td>' + (g.model ? (g.model.margin > 0 ? esc(g.home.abbr) + ' by ' + g.model.margin : esc(g.away.abbr) + ' by ' + (-g.model.margin).toFixed(1)) : '–') + '</td></tr>'; }).join('') + '</table>'; }
+  function run() {
+    var b = $('go'); b.disabled = true; $('out').innerHTML = '<div class="empty">Reading the lines…</div>'; $('notes').innerHTML = '';
+    fetch('/api/nba/parlay?date=' + encodeURIComponent($('date').value) + '&legs=' + $('legs').value).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'Failed'); return j; }); }).then(function (j) {
+      $('notes').innerHTML = j.notes.slice(0, -1).map(function (n) { return '<div class="note">' + esc(n) + '</div>'; }).join('');
+      $('out').innerHTML = (j.parlays.length ? '<div class="grid">' + j.parlays.map(parlay).join('') + '</div>' : '<div class="empty">Not enough games to build a parlay for ' + esc(j.date) + '.</div>') + games(j.games);
+    }).catch(function (e) { $('out').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).then(function () { b.disabled = false; });
+  }
+  $('date').value = eastern(1); $('go').onclick = run; $('date').onchange = run; $('legs').onchange = run; run();
+})();
+</script></body></html>

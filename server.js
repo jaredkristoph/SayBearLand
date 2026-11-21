@@ -9,11 +9,12 @@ const L = require('./public/layout.js');
 const AN = require('./public/anims.js');
 const AIA = require('./public/amialive/core.js');
 const LH = require('./public/livinghell/core.js');
+const NBA = require('./lib/nba.js');
 const { createWorld } = require('./lib/world');
 const { createNightfloat } = require('./lib/nightfloat');
 const { createWordly } = require('./lib/wordly');
 
-function createApp(store = createStore(), env = process.env) {
+function createApp(store = createStore(), env = process.env, deps = {}) {
   const SECRET = env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
   if (!env.SESSION_SECRET) console.warn('SESSION_SECRET not set: logins reset on every restart.');
   const ADMINS = (env.ADMIN_USERNAMES || 'admin').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
@@ -278,6 +279,14 @@ function createApp(store = createStore(), env = process.env) {
     await world.reload(); world.refreshClients();
     res.json({ layout: v.layout });
   }));
+  // NBA parlay bot (/nba): public, read only. Lines are cached ten minutes so the page cannot hammer ESPN.
+  const nbaBot = NBA.createBot(deps.nbaFetch);
+  app.get('/api/nba/parlay', wrap(async (req, res) => {
+    const legs = Math.max(2, Math.min(6, parseInt(req.query.legs, 10) || 3));
+    try { res.json(await nbaBot.parlay(String(req.query.date || ''), legs)); }
+    catch (e) { res.status(502).json({ error: 'Could not reach the NBA data feed. Try again in a minute.' }); }
+  }));
+
   // Living Hell (/livinghell): one cloud save per SayBearLand account, on top of the save kept in the browser.
   app.get('/api/livinghell/save', wrap(requireUser), wrap(async (req, res) => {
     const rec = await store.get(`lh:save:${req.user.username}`);
