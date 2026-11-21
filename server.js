@@ -295,7 +295,7 @@ function createApp(store = createStore(), env = process.env, deps = {}) {
   app.get('/api/nba/backtest', wrap(async (req, res) => {
     const to = String(req.query.to || NBA.easternDate(-1)), from = String(req.query.from || NBABACK.addDays(to, -13)), k = from + '|' + to, hit = backCache.get(k);
     if (hit && Date.now() - hit.t < 3600e3) return res.json(hit.v);
-    try { const v = await NBABACK.backtest(nbaBot, from, to); backCache.set(k, { t: Date.now(), v }); if (backCache.size > 20) backCache.delete(backCache.keys().next().value); res.json(v); }
+    try { const v = await NBABACK.backtest(nbaBot, from, to); if (v.gamesWithLines) backCache.set(k, { t: Date.now(), v }); if (backCache.size > 20) backCache.delete(backCache.keys().next().value); res.json(v); }
     catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); res.status(502).json({ error: 'Could not reach the NBA data feed. Try again in a minute.' }); }
   }));
 

@@ -33,6 +33,14 @@ const fetchFx = async (u) => { const m = /dates=(\d{8})/.exec(u); return (m && d
   await BT.backtest(spy, '2026-11-10', '2026-11-11'); N.rateGame = orig; assert.ok(seen.every((n) => n === 0)); ok('team numbers never use the day being tested (too few earlier games, so market only)');
   await assert.rejects(() => BT.backtest(bot, '2026-11-10', '2026-12-31')); await assert.rejects(() => BT.backtest(bot, 'x', '2026-11-10')); await assert.rejects(() => BT.backtest(bot, '2026-11-12', '2026-11-10')); ok('bad or huge ranges are refused');
 
+  // ESPN drops lines from finished games on the scoreboard: they come from the per-game odds feed instead
+  const bare = (id, h, a, hs, as) => g(id, h, a, hs, as, null);
+  const days2 = { '20261112': { events: [bare('c1', BOS, WAS, 120, 100), bare('c2', DEN, UTA, 110, 115)] } };
+  const core = { c1: { items: [{ provider: { name: 'ESPN BET' }, overUnder: 220.5, homeTeamOdds: { moneyLine: -900 }, awayTeamOdds: { moneyLine: 600 } }] }, c2: { items: [{ overUnder: 231, moneyline: { home: { close: { odds: '-400' } }, away: { close: { odds: '+320' } } } }] } };
+  const calls2 = []; const bot2 = N.createBot(async (u) => { calls2.push(u); const m = /events\/(\w+)\/competitions/.exec(u); if (m) return core[m[1]]; const d2 = /dates=(\d{8})/.exec(u); return days2[d2[1]] || { events: [] }; });
+  r = await BT.backtest(bot2, '2026-11-12', '2026-11-12'); assert.equal(r.gamesWithLines, 2); assert.equal(r.lineSources.perGame, 2); assert.equal(r.lineSources.scoreboard, 0); assert.equal(r.legs.moneyline.bets, 2); ok('lines are fetched per game when the scoreboard has dropped them');
+  const dead = N.createBot(async (u) => { if (/competitions/.test(u)) throw new Error('nope'); const d2 = /dates=(\d{8})/.exec(u); return days2[d2[1]] || { events: [] }; });
+  r = await BT.backtest(dead, '2026-11-12', '2026-11-12'); assert.equal(r.gamesWithLines, 0); assert.equal(r.lineSources.none, 2); assert.ok(r.notes.some((n) => /did not return stored lines/.test(n))); ok('with no lines anywhere the result says so instead of showing nothing');
   const server = http.createServer(createApp(memoryStore(), { SESSION_SECRET: 's' }, { nbaFetch: fetchFx })); await new Promise((r2) => server.listen(0, r2)); const base = `http://127.0.0.1:${server.address().port}`;
   let x = await fetch(base + '/api/nba/backtest?from=2026-11-10&to=2026-11-11'); const j = await x.json(); assert.equal(x.status, 200); assert.equal(j.days, 2); assert.ok(j.parlays.length); ok('backtest API');
   x = await fetch(base + '/api/nba/backtest?from=2026-01-01&to=2026-12-31'); assert.equal(x.status, 400); ok('API refuses a huge range');
