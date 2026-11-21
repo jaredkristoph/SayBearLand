@@ -24,6 +24,14 @@ h3{margin:26px 0 8px}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line)}th{color:var(--mut);font-weight:600}
 .empty{color:var(--mut);padding:30px 0;text-align:center}
 .fine{color:var(--mut);font-size:12px;margin-top:22px}
+.wal{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.wal b{font-size:22px;color:var(--good)}.wal small{color:var(--mut)}.wal a{color:var(--acc)}
+.ghost{background:transparent;color:var(--tx);border:1px solid var(--line);padding:6px 10px;font-weight:600}
+.slip{position:sticky;bottom:10px;background:#1d2430;border:1px solid var(--acc);border-radius:12px;padding:12px 14px;margin:14px 0;box-shadow:0 8px 24px #0008}
+.slip .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:8px}.slip input{width:100px}
+.ob{cursor:pointer;background:var(--bg);border:1px solid var(--line);color:var(--tx);padding:3px 7px;border-radius:6px;font-weight:600;font-size:12px}.ob.on{background:var(--acc);color:#1a0e03;border-color:var(--acc)}
+.st-open{color:var(--mid)}.st-won{color:var(--good)}.st-lost{color:var(--low)}.st-void{color:var(--mut)}
+.bet{border-top:1px solid var(--line);padding:9px 0;font-size:13px}.err{color:var(--low);font-size:13px}
 </style></head><body><main>
 <h1>NBA <span>Parlay Bot</span></h1>
 <p class="sub">Moneyline and over/under legs, ranked by how likely they are. One leg per game.</p>
@@ -32,8 +40,12 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   <label>Legs in the safest parlay<select id="legs"><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label>
   <button id="go">Build parlays</button>
 </div>
+<div class="wal" id="wal">Checking your wallet…</div>
 <div id="notes"></div><div id="out"><div class="empty">Loading tomorrow's slate…</div></div>
-<p class="fine">Probabilities blend the sportsbook line (vig removed) with each team's scoring numbers. This is a model, not a guarantee: a parlay needs every leg to hit, so even the safest ones lose more often than they win. Lines come from ESPN and are cached for about 10 minutes. 21+ and bet responsibly.</p>
+<div id="slip"></div>
+<h3>My bets</h3><div id="bets" class="p"><div class="empty">Sign in to see your bets.</div></div>
+<h3>Leaderboard</h3><div id="board" class="p"><div class="empty">Sign in to see the leaderboard.</div></div>
+<p class="fine">Play money only: nothing here is real cash and nothing can be withdrawn. Probabilities blend the sportsbook line (vig removed) with each team's scoring numbers. This is a model, not a guarantee: a parlay needs every leg to hit, so even the safest ones lose more often than they win. Lines come from ESPN and are cached for about 10 minutes. 21+ and bet responsibly.</p>
 </main>
 <script>
 (function () {
@@ -42,19 +54,73 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   function eastern(off) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + off * 864e5)); }
   function odds(a) { return a > 0 ? '+' + a : String(a); }
   function pct(p) { return Math.round(p * 100) + '%'; }
+  function usd(v) { return '$' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
   function tip(iso) { try { return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
-  function leg(l) { return '<div class="leg"><div><span class="g g' + l.grade + '">' + l.grade + '</span> <b>' + esc(l.label) + '</b><small>' + (l.type === 'ml' ? 'vs ' : '') + esc(l.vs) + ' · ' + esc(l.source) + '</small></div><div class="pr"><b>' + pct(l.prob) + '</b><small>' + odds(l.odds) + (l.estimatedOdds && l.type === 'ml' ? ' est.' : '') + '</small></div></div>'; }
-  function parlay(p) { return '<div class="p"><h2>' + esc(p.name) + ' <b>' + odds(p.american) + '</b></h2><div class="bl">' + esc(p.blurb) + '</div>' + p.legs.map(leg).join('') +
-    '<div class="sum"><div><b>' + pct(p.prob) + '</b>chance</div><div><b>1 in ' + p.hitOneIn + '</b>hits</div><div><b>$' + (10 * p.decimal).toFixed(0) + '</b>on $10</div></div></div>'; }
-  function games(gs) { if (!gs.length) return ''; return '<h3>The slate</h3><table><tr><th>Tip</th><th>Game</th><th>ML (A / H)</th><th>Total</th><th>Model margin</th></tr>' + gs.map(function (g) {
-    var o = g.odds || {}; return '<tr><td>' + tip(g.start) + '</td><td>' + esc(g.away.abbr) + ' @ ' + esc(g.home.abbr) + '</td><td>' + (o.awayML ? odds(o.awayML) : '–') + ' / ' + (o.homeML ? odds(o.homeML) : '–') + '</td><td>' + (o.total || '–') + '</td><td>' + (g.model ? (g.model.margin > 0 ? esc(g.home.abbr) + ' by ' + g.model.margin : esc(g.away.abbr) + ' by ' + (-g.model.margin).toFixed(1)) : '–') + '</td></tr>'; }).join('') + '</table>'; }
-  function run() {
-    var b = $('go'); b.disabled = true; $('out').innerHTML = '<div class="empty">Reading the lines…</div>'; $('notes').innerHTML = '';
-    fetch('/api/nba/parlay?date=' + encodeURIComponent($('date').value) + '&legs=' + $('legs').value).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'Failed'); return j; }); }).then(function (j) {
-      $('notes').innerHTML = j.notes.slice(0, -1).map(function (n) { return '<div class="note">' + esc(n) + '</div>'; }).join('');
-      $('out').innerHTML = (j.parlays.length ? '<div class="grid">' + j.parlays.map(parlay).join('') + '</div>' : '<div class="empty">Not enough games to build a parlay for ' + esc(j.date) + '.</div>') + games(j.games);
-    }).catch(function (e) { $('out').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).then(function () { b.disabled = false; });
+  function dec(a) { return a < 0 ? 1 + 100 / -a : 1 + a / 100; }
+  var data = null, slip = [], me = null, wallet = null, slipMsg = '';
+  function api(method, path, body) { return fetch(path, { method: method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(j.error || 'Failed'); e.status = r.status; throw e; } return j; }); }); }
+
+  /* ---- slip ---- */
+  function key(l) { return l.gameId + '|' + l.type + '|' + l.pick; }
+  function find(gameId, type, pick) { // the price of a pick, from the board the server sent
+    var g = data.games.filter(function (x) { return x.gameId === gameId; })[0]; if (!g || !g.odds) return null; var o = g.odds;
+    if (type === 'total') return o.total ? { gameId: gameId, type: type, pick: pick, label: (pick === 'OVER' ? 'Over ' : 'Under ') + o.total, sub: g.away.abbr + ' @ ' + g.home.abbr, odds: -110 } : null;
+    var home = pick === g.home.abbr, v = home ? o.homeML : o.awayML; return v ? { gameId: gameId, type: type, pick: pick, label: (home ? g.home : g.away).name + ' to win', sub: g.away.abbr + ' @ ' + g.home.abbr, odds: v } : null;
   }
+  function toggle(gameId, type, pick) {
+    var l = find(gameId, type, pick); if (!l) return; slipMsg = '';
+    var same = slip.filter(function (x) { return key(x) === key(l); }).length;
+    slip = slip.filter(function (x) { return x.gameId !== gameId; }); if (!same) slip.push(l); if (slip.length > 6) slip.shift(); renderAll();
+  }
+  function renderSlip() {
+    if (!slip.length) { $('slip').innerHTML = slipMsg ? '<div class="slip">' + slipMsg + '</div>' : ''; return; }
+    var d = slip.reduce(function (a, l) { return a * dec(l.odds); }, 1), st = Number($('stake') ? $('stake').value : 10) || 10;
+    $('slip').innerHTML = '<div class="slip"><b>Bet slip · ' + slip.length + (slip.length > 1 ? '-leg parlay' : ' straight') + '</b> <button class="ghost" id="clr">Clear</button>' +
+      slip.map(function (l) { return '<div class="leg"><div><b>' + esc(l.label) + '</b><small>' + esc(l.sub) + '</small></div><div class="pr"><b>' + odds(l.odds) + '</b></div></div>'; }).join('') +
+      '<div class="row"><label>Stake $<input id="stake" type="number" min="1" step="1" value="' + st + '"></label><div>Pays <b id="pay">' + usd(st * d) + '</b> <small>(profit ' + usd(st * d - st) + ')</small></div>' +
+      (me ? '<button id="place">Place bet</button>' : '<a href="/" style="color:var(--acc)">Log in to bet</a>') + '</div>' + (slipMsg ? '<div class="err">' + esc(slipMsg) + '</div>' : '') + '</div>';
+    $('clr').onclick = function () { slip = []; slipMsg = ''; renderAll(); };
+    $('stake').oninput = function () { $('pay').textContent = usd((Number($('stake').value) || 0) * d); };
+    if ($('place')) $('place').onclick = place;
+  }
+  function place() {
+    var b = $('place'); b.disabled = true;
+    api('POST', '/api/nba/bet', { date: data.date, stake: Number($('stake').value), legs: slip.map(function (l) { return { gameId: l.gameId, type: l.type, pick: l.pick }; }) })
+      .then(function (w) { wallet = w; slip = []; slipMsg = 'Bet placed. Good luck!'; renderAll(); renderLeaders(); }).catch(function (e) { slipMsg = e.message; b.disabled = false; renderAll(); });
+  }
+
+  /* ---- render ---- */
+  function leg(l) { return '<div class="leg"><div><span class="g g' + l.grade + '">' + l.grade + '</span> <b>' + esc(l.label) + '</b><small>' + (l.type === 'ml' ? 'vs ' : '') + esc(l.vs) + ' · ' + esc(l.source) + '</small></div><div class="pr"><b>' + pct(l.prob) + '</b><small>' + odds(l.odds) + (l.estimatedOdds && l.type === 'ml' ? ' est.' : '') + '</small></div></div>'; }
+  function parlay(p, i) { return '<div class="p"><h2>' + esc(p.name) + ' <b>' + odds(p.american) + '</b></h2><div class="bl">' + esc(p.blurb) + '</div>' + p.legs.map(leg).join('') +
+    '<div class="sum"><div><b>' + pct(p.prob) + '</b>chance</div><div><b>1 in ' + p.hitOneIn + '</b>hits</div><div><b>$' + (10 * p.decimal).toFixed(0) + '</b>on $10</div></div><div style="margin-top:10px"><button data-p="' + i + '">Add to slip</button></div></div>'; }
+  function onBtn(g, type, pick, txt) { var on = slip.some(function (l) { return key(l) === g.gameId + '|' + type + '|' + pick; }); return '<button class="ob' + (on ? ' on' : '') + '" data-g="' + g.gameId + '" data-t="' + type + '" data-k="' + pick + '">' + txt + '</button>'; }
+  function games(gs) { if (!gs.length) return ''; return '<h3>The slate <small style="color:var(--mut);font-weight:400">· tap a price to build your own slip</small></h3><table><tr><th>Tip</th><th>Game</th><th>Moneyline</th><th>Total</th><th>Model margin</th></tr>' + gs.map(function (g) {
+    var o = g.odds || {}; return '<tr><td>' + tip(g.start) + '</td><td>' + esc(g.away.abbr) + ' @ ' + esc(g.home.abbr) + '</td><td>' + (o.awayML ? onBtn(g, 'ml', g.away.abbr, esc(g.away.abbr) + ' ' + odds(o.awayML)) : '–') + ' ' + (o.homeML ? onBtn(g, 'ml', g.home.abbr, esc(g.home.abbr) + ' ' + odds(o.homeML)) : '') + '</td><td>' + (o.total ? onBtn(g, 'total', 'OVER', 'O ' + o.total) + ' ' + onBtn(g, 'total', 'UNDER', 'U ' + o.total) : '–') + '</td><td>' + (g.model ? (g.model.margin > 0 ? esc(g.home.abbr) + ' by ' + g.model.margin : esc(g.away.abbr) + ' by ' + (-g.model.margin).toFixed(1)) : '–') + '</td></tr>'; }).join('') + '</table>'; }
+  function renderBoard() {
+    if (!data) return; $('notes').innerHTML = data.notes.slice(0, -1).map(function (n) { return '<div class="note">' + esc(n) + '</div>'; }).join('');
+    $('out').innerHTML = (data.parlays.length ? '<div class="grid">' + data.parlays.map(parlay).join('') + '</div>' : '<div class="empty">Not enough games to build a parlay for ' + esc(data.date) + '.</div>') + games(data.games);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-p]'), function (b) { b.onclick = function () { var p = data.parlays[+b.dataset.p]; slip = p.legs.map(function (l) { return find(l.gameId, l.type, l.pick); }).filter(Boolean); slipMsg = ''; renderAll(); $('slip').scrollIntoView({ block: 'nearest' }); }; });
+    Array.prototype.forEach.call(document.querySelectorAll('.ob'), function (b) { b.onclick = function () { toggle(b.dataset.g, b.dataset.t, b.dataset.k); }; });
+  }
+  function renderWallet() {
+    if (!me) { $('wal').innerHTML = '<div><b style="color:var(--tx)">Play money</b><br><small>Log in or create an account and you get $1,000 of pretend cash to bet with.</small></div><a href="/"><button>Log in / Create account</button></a>'; $('bets').innerHTML = '<div class="empty">Sign in to see your bets.</div>'; return; }
+    if (!wallet) { $('wal').textContent = 'Loading your wallet…'; return; }
+    var canRefill = wallet.balance < 1 && !wallet.open;
+    $('wal').innerHTML = '<div><small>' + esc(me.name || me.username) + ' · play money</small><br><b>' + usd(wallet.balance) + '</b> <small>' + (wallet.open ? wallet.open + ' open bet' + (wallet.open > 1 ? 's' : '') : '') + (wallet.refills ? ' · ' + wallet.refills + ' refill' + (wallet.refills > 1 ? 's' : '') : '') + '</small></div>' + (canRefill ? '<button id="refill">Refill to $1,000</button>' : '<small>Bets settle on their own once the games finish.</small>');
+    if ($('refill')) $('refill').onclick = function () { api('POST', '/api/nba/refill').then(function (w) { wallet = w; renderAll(); }).catch(function (e) { slipMsg = e.message; renderAll(); }); };
+    $('bets').innerHTML = wallet.bets.length ? wallet.bets.map(function (b) { return '<div class="bet"><b class="st-' + b.status + '">' + b.status.toUpperCase() + '</b> · ' + usd(b.stake) + ' to win ' + usd(b.toWin) + (b.status === 'won' ? ' · paid ' + usd(b.payout) : b.status === 'void' ? ' · refunded' : '') + ' <small style="color:var(--mut)">(' + esc(b.date) + ')</small>' +
+      b.legs.map(function (l) { return '<div style="margin-left:12px;color:var(--mut)">' + (l.result === 'won' ? '✓ ' : l.result === 'lost' ? '✗ ' : l.result === 'push' ? '– ' : '· ') + esc(l.label) + ' (' + esc(l.away) + ' @ ' + esc(l.home) + ') ' + odds(l.odds) + '</div>'; }).join('') + '</div>'; }).join('') : '<div class="empty">No bets yet. Add a parlay to your slip.</div>';
+  }
+  function renderLeaders() { if (!me) return; api('GET', '/api/nba/board').then(function (j) { $('board').innerHTML = j.players.length ? '<table><tr><th>#</th><th>Player</th><th>Balance</th><th>W-L</th></tr>' + j.players.map(function (p, i) { return '<tr><td>' + (i + 1) + '</td><td>' + esc(p.username) + '</td><td>' + usd(p.balance) + '</td><td>' + p.won + '-' + p.lost + '</td></tr>'; }).join('') + '</table>' : '<div class="empty">No players yet.</div>'; }).catch(function () {}); }
+  function renderAll() { renderBoard(); renderSlip(); renderWallet(); }
+
+  function run() {
+    var b = $('go'); b.disabled = true; $('out').innerHTML = '<div class="empty">Reading the lines…</div>'; $('notes').innerHTML = ''; slip = [];
+    api('GET', '/api/nba/parlay?date=' + encodeURIComponent($('date').value) + '&legs=' + $('legs').value).then(function (j) { data = j; renderAll(); }).catch(function (e) { $('out').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).then(function () { b.disabled = false; });
+  }
+  function loadWallet() { return api('GET', '/api/nba/wallet').then(function (w) { wallet = w; }); }
+  api('GET', '/api/me').then(function (j) { me = j.user; return loadWallet(); }).catch(function () { me = null; }).then(function () { renderWallet(); renderLeaders(); });
+  setInterval(function () { if (me) loadWallet().then(renderWallet).catch(function () {}); }, 90000);
   $('date').value = eastern(1); $('go').onclick = run; $('date').onchange = run; $('legs').onchange = run; run();
 })();
 </script></body></html>
