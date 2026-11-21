@@ -290,15 +290,15 @@ function createApp(store = createStore(), env = process.env, deps = {}) {
   app.get('/api/sports/:sport/parlay', wrap(async (req, res) => {
     const bot = bots[req.params.sport]; if (!bot) return res.status(404).json({ error: 'Unknown sport.' });
     const legs = Math.max(2, Math.min(6, parseInt(req.query.legs, 10) || 3));
-    try { res.json(await bot.parlay(String(req.query.date || ''), legs)); } catch (e) { res.status(502).json({ error: 'Could not reach the ' + bot.cfg.label + ' data feed. Try again in a minute.' }); }
+    try { res.json(await bot.parlay(String(req.query.date || ''), legs, String(req.query.type || 'all'))); } catch (e) { res.status(502).json({ error: 'Could not reach the ' + bot.cfg.label + ' data feed. Try again in a minute.' }); }
   }));
   app.get('/api/all/parlay', wrap(async (req, res) => {
     const legs = Math.max(2, Math.min(6, parseInt(req.query.legs, 10) || 3)), date = NBA.validDate(String(req.query.date || '')) ? String(req.query.date) : NBA.easternDate(1);
     const want = String(req.query.sports || '').split(',').filter((k) => bots[k]), keys = want.length ? want : Object.keys(bots);
-    const got = await Promise.all(keys.map((k) => bots[k].parlay(date, legs).then((b) => ({ ok: true, b }), () => ({ ok: false, k }))));
+    const got = await Promise.all(keys.map((k) => bots[k].parlay(date, legs, String(req.query.type || 'all')).then((b) => ({ ok: true, b }), () => ({ ok: false, k }))));
     const boards = got.filter((x) => x.ok).map((x) => x.b); if (!boards.length) return res.status(502).json({ error: 'Could not reach the data feeds. Try again in a minute.' });
-    const m = NBA.mergeBoards(boards, legs), notes = [].concat(...boards.map((b) => (b.games.length || /No /.test(b.notes[0] || '') ? b.notes.filter((n) => !/^Odds come from/.test(n)).map((n) => (n.startsWith('No ') ? n : b.sportLabel + ': ' + n)) : [])), got.filter((x) => !x.ok).map((x) => bots[x.k].cfg.label + ' could not be loaded.'));
-    res.json({ date, sport: 'all', sportLabel: 'All sports', games: m.games, parlays: m.parlays, counts: boards.map((b) => ({ sport: b.sport, label: b.sportLabel, games: b.games.length })), notes: Array.from(new Set(notes)).concat(['Odds come from ESPN (DraftKings/ESPN BET). A parlay only hits if every leg hits: even the safest slips lose most weeks. Bet only what you can lose.']) });
+    const m = NBA.mergeBoards(boards, legs, String(req.query.type || 'all')), notes = [].concat(...boards.map((b) => (b.games.length || /No /.test(b.notes[0] || '') ? b.notes.filter((n) => !/^Odds come from/.test(n)).map((n) => (n.startsWith('No ') ? n : b.sportLabel + ': ' + n)) : [])), got.filter((x) => !x.ok).map((x) => bots[x.k].cfg.label + ' could not be loaded.'));
+    res.json({ date, sport: 'all', sportLabel: 'All sports', type: NBA.TYPES[req.query.type] ? req.query.type : 'all', games: m.games, parlays: m.parlays, counts: boards.map((b) => ({ sport: b.sport, label: b.sportLabel, games: b.games.length })), notes: Array.from(new Set(notes)).concat(['Odds come from ESPN (DraftKings/ESPN BET). A parlay only hits if every leg hits: even the safest slips lose most weeks. Bet only what you can lose.']) });
   }));
   app.get('/api/nba/parlay', wrap(async (req, res) => {
     const legs = Math.max(2, Math.min(6, parseInt(req.query.legs, 10) || 3));
@@ -311,9 +311,9 @@ function createApp(store = createStore(), env = process.env, deps = {}) {
   app.get('/api/nba/backtest', wrap(async (req, res) => {
     const to = String(req.query.to || NBA.easternDate(-1)), from = String(req.query.from || NBABACK.addDays(to, -13));
     const asked = String(req.query.sports || 'nba'), only = asked === 'all' ? Object.keys(bots) : asked.split(',').filter((k) => bots[k]);
-    const k = from + '|' + to + '|' + only.join(','), hit = backCache.get(k);
+    const type = NBA.TYPES[req.query.type] ? String(req.query.type) : 'all', k = from + '|' + to + '|' + only.join(',') + '|' + type, hit = backCache.get(k);
     if (hit && Date.now() - hit.t < 3600e3) return res.json(hit.v);
-    try { const v = await NBABACK.backtest(bots, from, to, only); if (v.gamesWithLines && !v.partial) { backCache.set(k, { t: Date.now(), v }); if (backCache.size > 20) backCache.delete(backCache.keys().next().value); } res.json(v); }
+    try { const v = await NBABACK.backtest(bots, from, to, only, { type }); if (v.gamesWithLines && !v.partial) { backCache.set(k, { t: Date.now(), v }); if (backCache.size > 20) backCache.delete(backCache.keys().next().value); } res.json(v); }
     catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); res.status(502).json({ error: 'Could not reach the data feed. Try again in a minute.' }); }
   }));
 
