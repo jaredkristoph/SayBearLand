@@ -283,7 +283,23 @@ function createApp(store = createStore(), env = process.env, deps = {}) {
     res.json({ layout: v.layout });
   }));
   // NBA parlay bot (/nba): public, read only. Lines are cached ten minutes so the page cannot hammer ESPN.
-  const nbaBot = NBA.createBot(deps.nbaFetch);
+  const bots = {}; Object.keys(NBA.SPORTS).forEach((k) => { bots[k] = NBA.createBot(deps.nbaFetch, undefined, k); });
+  const nbaBot = bots.nba;
+  // any one sport, or all of them merged so parlays can mix sports
+  app.get('/api/sports', (req, res) => res.json({ sports: Object.values(NBA.SPORTS).map((c) => ({ key: c.key, label: c.label })) }));
+  app.get('/api/sports/:sport/parlay', wrap(async (req, res) => {
+    const bot = bots[req.params.sport]; if (!bot) return res.status(404).json({ error: 'Unknown sport.' });
+    const legs = Math.max(2, Math.min(6, parseInt(req.query.legs, 10) || 3));
+    try { res.json(await bot.parlay(String(req.query.date || ''), legs)); } catch (e) { res.status(502).json({ error: 'Could not reach the ' + bot.cfg.label + ' data feed. Try again in a minute.' }); }
+  }));
+  app.get('/api/all/parlay', wrap(async (req, res) => {
+    const legs = Math.max(2, Math.min(6, parseInt(req.query.legs, 10) || 3)), date = NBA.validDate(String(req.query.date || '')) ? String(req.query.date) : NBA.easternDate(1);
+    const want = String(req.query.sports || '').split(',').filter((k) => bots[k]), keys = want.length ? want : Object.keys(bots);
+    const got = await Promise.all(keys.map((k) => bots[k].parlay(date, legs).then((b) => ({ ok: true, b }), () => ({ ok: false, k }))));
+    const boards = got.filter((x) => x.ok).map((x) => x.b); if (!boards.length) return res.status(502).json({ error: 'Could not reach the data feeds. Try again in a minute.' });
+    const m = NBA.mergeBoards(boards, legs), notes = [].concat(...boards.map((b) => (b.games.length || /No /.test(b.notes[0] || '') ? b.notes.filter((n) => !/^Odds come from/.test(n)).map((n) => (n.startsWith('No ') ? n : b.sportLabel + ': ' + n)) : [])), got.filter((x) => !x.ok).map((x) => bots[x.k].cfg.label + ' could not be loaded.'));
+    res.json({ date, sport: 'all', sportLabel: 'All sports', games: m.games, parlays: m.parlays, counts: boards.map((b) => ({ sport: b.sport, label: b.sportLabel, games: b.games.length })), notes: Array.from(new Set(notes)).concat(['Odds come from ESPN (DraftKings/ESPN BET). A parlay only hits if every leg hits: even the safest slips lose most weeks. Bet only what you can lose.']) });
+  }));
   app.get('/api/nba/parlay', wrap(async (req, res) => {
     const legs = Math.max(2, Math.min(6, parseInt(req.query.legs, 10) || 3));
     try { res.json(await nbaBot.parlay(String(req.query.date || ''), legs)); }
@@ -304,7 +320,7 @@ function createApp(store = createStore(), env = process.env, deps = {}) {
   const propErr = (res, e) => (e.status ? res.status(e.status).json({ error: e.message }) : res.status(502).json({ error: 'Could not load player stats right now. Try again in a minute.' }));
   app.get('/api/nba/props', wrap(async (req, res) => { try { res.json(await nbaProps.players(String(req.query.date || NBA.easternDate(1)))); } catch (e) { propErr(res, e); } }));
   app.get('/api/nba/player', wrap(async (req, res) => { try { res.json(await nbaProps.detail(String(req.query.date || NBA.easternDate(1)), String(req.query.gameId || ''), String(req.query.id || ''))); } catch (e) { propErr(res, e); } }));
-  const nbaBets = NBABETS.createBets(store, nbaBot, undefined, nbaProps);
+  const nbaBets = NBABETS.createBets(store, bots, undefined, nbaProps);
   const nbaWrap = (fn) => wrap(async (req, res) => { try { res.json(await fn(req)); } catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); res.status(502).json({ error: 'Could not reach the NBA data feed. Try again in a minute.' }); } });
   app.get('/api/nba/wallet', wrap(requireUser), nbaWrap((req) => nbaBets.wallet(req.user.username)));
   app.post('/api/nba/bet', wrap(requireUser), nbaWrap((req) => nbaBets.place(req.user.username, String(req.body.date || ''), req.body.legs, req.body.stake)));

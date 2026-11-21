@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NBA Parlay Bot · SayBearLand</title>
+<title>Parlay Bot · SayBearLand</title>
 <style>
 :root{--bg:#0e1116;--card:#171c24;--line:#262d38;--tx:#e8ecf2;--mut:#8b96a7;--acc:#ff8a3d;--good:#3ecf8e;--mid:#e9c46a;--low:#e76f6f}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
@@ -37,10 +37,12 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 .pl{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 14px}.pl button{background:var(--bg);color:var(--tx);border:1px solid var(--line);font-weight:500;padding:5px 9px;font-size:13px}.pl button.out{opacity:.5;text-decoration:line-through}
 .gh{font-weight:700;margin-top:10px}.gh small{color:var(--mut);font-weight:400}
 #pp{border-color:var(--acc);margin:10px 0}#pp h2{margin:0}.pn{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.pn input{width:84px;padding:5px 7px}
+.stabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}.stabs button{background:var(--card);color:var(--tx);border:1px solid var(--line);font-weight:600;padding:7px 12px}.stabs button.on{background:var(--acc);color:#1a0e03;border-color:var(--acc)}
 .bet{border-top:1px solid var(--line);padding:9px 0;font-size:13px}.err{color:var(--low);font-size:13px}
 </style></head><body><main>
-<h1>NBA <span>Parlay Bot</span></h1>
-<p class="sub">Moneyline and over/under legs, ranked by how likely they are. One leg per game.</p>
+<h1>Parlay <span>Bot</span></h1>
+<p class="sub">Moneyline and over/under legs, ranked by how likely they are. One leg per game. Pick legs from different sports and they all go in one parlay.</p>
+<div class="stabs" id="stabs"></div>
 <div class="bar">
   <label>Slate date<input id="date" type="date"></label>
   <label>Legs in the safest parlay<select id="legs"><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label>
@@ -49,10 +51,12 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 <div class="wal" id="wal">Checking your wallet…</div>
 <div id="notes"></div><div id="out"><div class="empty">Loading tomorrow's slate…</div></div>
 <div id="slip"></div>
+<div id="nbaonly">
 <h3>Players <small style="color:var(--mut);font-weight:400">· press a name for projected stats in the next game</small></h3>
 <div class="p"><input id="psearch" placeholder="Search a player…" style="width:100%;margin-bottom:6px"><div id="pp" class="p" hidden></div><div id="plist"><div class="empty">Loading players…</div></div></div>
 <h3>Backtest <small style="color:var(--mut);font-weight:400">· would the model have hit on past days?</small></h3>
 <div class="p"><div class="bar" style="margin:0 0 10px"><label>From<input id="bf" type="date"></label><label>To<input id="bt" type="date"></label><button id="bgo">Run backtest</button></div><div id="bres"><div class="empty">Replays the same formula on finished days, using only what was known before each day. Up to 31 days.</div></div></div>
+</div>
 <h3>My bets</h3><div id="bets" class="p"><div class="empty">Sign in to see your bets.</div></div>
 <h3>Leaderboard</h3><div id="board" class="p"><div class="empty">Sign in to see the leaderboard.</div></div>
 <p class="fine">Play money only: nothing here is real cash and nothing can be withdrawn. Probabilities blend the sportsbook line (vig removed) with each team's scoring numbers. This is a model, not a guarantee: a parlay needs every leg to hit, so even the safest ones lose more often than they win. Lines come from ESPN and are cached for about 10 minutes. 21+ and bet responsibly.</p>
@@ -67,7 +71,8 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   function usd(v) { return '$' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
   function tip(iso) { try { return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
   function dec(a) { return a < 0 ? 1 + 100 / -a : 1 + a / 100; }
-  var data = null, slip = [], me = null, wallet = null, slipMsg = '';
+  var data = null, slip = [], me = null, wallet = null, slipMsg = '', sport = 'all', SPORTS = [['all', 'All sports'], ['nba', 'NBA'], ['nfl', 'NFL'], ['nhl', 'NHL'], ['ncaaf', 'College Football'], ['ncaab', 'College Basketball']];
+  function renderTabs() { $('stabs').innerHTML = SPORTS.map(function (x) { return '<button data-sp="' + x[0] + '" class="' + (sport === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join(''); Array.prototype.forEach.call($('stabs').querySelectorAll('button'), function (b) { b.onclick = function () { sport = b.dataset.sp; renderTabs(); $('nbaonly').hidden = sport !== 'nba'; run(); }; }); $('nbaonly').hidden = sport !== 'nba'; }
   function api(method, path, body) { return fetch(path, { method: method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(j.error || 'Failed'); e.status = r.status; throw e; } return j; }); }); }
 
   /* ---- slip ---- */
@@ -136,12 +141,12 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   }
 
   /* ---- render ---- */
-  function leg(l) { return '<div class="leg"><div><span class="g g' + l.grade + '">' + l.grade + '</span> <b>' + esc(l.label) + '</b><small>' + (l.type === 'ml' ? 'vs ' : '') + esc(l.vs) + ' · ' + esc(l.source) + '</small></div><div class="pr"><b>' + pct(l.prob) + '</b><small>' + odds(l.odds) + (l.estimatedOdds && l.type === 'ml' ? ' est.' : '') + '</small></div></div>'; }
+  function leg(l) { return '<div class="leg"><div><span class="g g' + l.grade + '">' + l.grade + '</span> ' + (l.sport && sport === 'all' ? '<small style="display:inline;color:var(--acc);font-weight:700">' + esc(l.sport.toUpperCase()) + '</small> ' : '') + '<b>' + esc(l.label) + '</b><small>' + (l.type === 'ml' ? 'vs ' : '') + esc(l.vs) + ' · ' + esc(l.source) + '</small></div><div class="pr"><b>' + pct(l.prob) + '</b><small>' + odds(l.odds) + (l.estimatedOdds && l.type === 'ml' ? ' est.' : '') + '</small></div></div>'; }
   function parlay(p, i) { return '<div class="p"><h2>' + esc(p.name) + ' <b>' + odds(p.american) + '</b></h2><div class="bl">' + esc(p.blurb) + '</div>' + p.legs.map(leg).join('') +
     '<div class="sum"><div><b>' + pct(p.prob) + '</b>chance</div><div><b>1 in ' + p.hitOneIn + '</b>hits</div><div><b>$' + (10 * p.decimal).toFixed(0) + '</b>on $10</div></div><div style="margin-top:10px"><button data-p="' + i + '">Add to slip</button></div></div>'; }
   function onBtn(g, type, pick, txt) { var on = slip.some(function (l) { return key(l) === g.gameId + '|' + type + '|' + pick + '|'; }); return '<button class="ob' + (on ? ' on' : '') + '" data-g="' + g.gameId + '" data-t="' + type + '" data-k="' + pick + '">' + txt + '</button>'; }
   function games(gs) { if (!gs.length) return ''; return '<h3>The slate <small style="color:var(--mut);font-weight:400">· tap a price to build your own slip</small></h3><table><tr><th>Tip</th><th>Game</th><th>Moneyline</th><th>Total</th><th>Model margin</th></tr>' + gs.map(function (g) {
-    var o = g.odds || {}; return '<tr><td>' + tip(g.start) + '</td><td>' + esc(g.away.abbr) + ' @ ' + esc(g.home.abbr) + '</td><td>' + (o.awayML ? onBtn(g, 'ml', g.away.abbr, esc(g.away.abbr) + ' ' + odds(o.awayML)) : '–') + ' ' + (o.homeML ? onBtn(g, 'ml', g.home.abbr, esc(g.home.abbr) + ' ' + odds(o.homeML)) : '') + '</td><td>' + (o.total ? onBtn(g, 'total', 'OVER', 'O ' + o.total) + ' ' + onBtn(g, 'total', 'UNDER', 'U ' + o.total) : '–') + '</td><td>' + (g.model ? (g.model.margin > 0 ? esc(g.home.abbr) + ' by ' + g.model.margin : esc(g.away.abbr) + ' by ' + (-g.model.margin).toFixed(1)) : '–') + '</td></tr>'; }).join('') + '</table>'; }
+    var o = g.odds || {}; return '<tr><td>' + tip(g.start) + '</td><td>' + (sport === 'all' && g.sport ? '<b style="color:var(--acc)">' + esc(g.sport.toUpperCase()) + '</b> ' : '') + esc(g.away.abbr) + ' @ ' + esc(g.home.abbr) + '</td><td>' + (o.awayML ? onBtn(g, 'ml', g.away.abbr, esc(g.away.abbr) + ' ' + odds(o.awayML)) : '–') + ' ' + (o.homeML ? onBtn(g, 'ml', g.home.abbr, esc(g.home.abbr) + ' ' + odds(o.homeML)) : '') + '</td><td>' + (o.total ? onBtn(g, 'total', 'OVER', 'O ' + o.total) + ' ' + onBtn(g, 'total', 'UNDER', 'U ' + o.total) : '–') + '</td><td>' + (g.model ? (g.model.margin > 0 ? esc(g.home.abbr) + ' by ' + g.model.margin : esc(g.away.abbr) + ' by ' + (-g.model.margin).toFixed(1)) : '–') + '</td></tr>'; }).join('') + '</table>'; }
   function renderBoard() {
     if (!data) return; $('notes').innerHTML = data.notes.slice(0, -1).map(function (n) { return '<div class="note">' + esc(n) + '</div>'; }).join('');
     $('out').innerHTML = (data.parlays.length ? '<div class="grid">' + data.parlays.map(parlay).join('') + '</div>' : '<div class="empty">Not enough games to build a parlay for ' + esc(data.date) + '.</div>') + games(data.games);
@@ -188,8 +193,8 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   function renderAll() { renderBoard(); renderSlip(); renderWallet(); }
 
   function run() {
-    var b = $('go'); b.disabled = true; $('out').innerHTML = '<div class="empty">Reading the lines…</div>'; $('notes').innerHTML = ''; slip = [];
-    api('GET', '/api/nba/parlay?date=' + encodeURIComponent($('date').value) + '&legs=' + $('legs').value).then(function (j) { data = j; renderAll(); loadPlayers(); }).catch(function (e) { $('out').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).then(function () { b.disabled = false; });
+    var b = $('go'); b.disabled = true; $('out').innerHTML = '<div class="empty">Reading the lines…</div>'; $('notes').innerHTML = '';
+    api('GET', (sport === 'all' ? '/api/all/parlay?' : '/api/sports/' + sport + '/parlay?') + 'date=' + encodeURIComponent($('date').value) + '&legs=' + $('legs').value).then(function (j) { data = j; renderAll(); if (sport === 'nba') loadPlayers(); }).catch(function (e) { $('out').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).then(function () { b.disabled = false; });
   }
   function runBack() {
     var b = $('bgo'); b.disabled = true; $('bres').innerHTML = '<div class="empty">Replaying past days… this can take a few seconds.</div>';
@@ -205,6 +210,6 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   function loadWallet() { return api('GET', '/api/nba/wallet').then(function (w) { wallet = w; }); }
   api('GET', '/api/me').then(function (j) { me = j.user; return loadWallet(); }).catch(function () { me = null; }).then(function () { renderWallet(); renderLeaders(); });
   setInterval(function () { if (me) loadWallet().then(renderWallet).catch(function () {}); }, 90000);
-  $('date').value = eastern(1); $('go').onclick = run; $('date').onchange = run; $('legs').onchange = run; run();
+  renderTabs(); $('date').value = eastern(1); $('go').onclick = run; $('date').onchange = function () { slip = []; run(); }; $('legs').onchange = run; run();
 })();
 </script></body></html>
