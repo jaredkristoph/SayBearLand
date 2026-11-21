@@ -54,6 +54,8 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 <div id="nbaonly">
 <h3>Players <small style="color:var(--mut);font-weight:400">· press a name for projected stats in the next game</small></h3>
 <div class="p"><input id="psearch" placeholder="Search a player…" style="width:100%;margin-bottom:6px"><div id="pp" class="p" hidden></div><div id="plist"><div class="empty">Loading players…</div></div></div>
+</div>
+<div id="backs">
 <h3>Backtest <small style="color:var(--mut);font-weight:400">· would the model have hit on past days?</small></h3>
 <div class="p"><div class="bar" style="margin:0 0 10px"><label>From<input id="bf" type="date"></label><label>To<input id="bt" type="date"></label><button id="bgo">Run backtest</button></div><div id="bres"><div class="empty">Replays the same formula on finished days, using only what was known before each day. Up to 31 days.</div></div></div>
 </div>
@@ -72,7 +74,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   function tip(iso) { try { return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
   function dec(a) { return a < 0 ? 1 + 100 / -a : 1 + a / 100; }
   var data = null, slip = [], me = null, wallet = null, slipMsg = '', sport = 'all', SPORTS = [['all', 'All sports'], ['nba', 'NBA'], ['nfl', 'NFL'], ['nhl', 'NHL'], ['ncaaf', 'College Football'], ['ncaab', 'College Basketball']];
-  function renderTabs() { $('stabs').innerHTML = SPORTS.map(function (x) { return '<button data-sp="' + x[0] + '" class="' + (sport === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join(''); Array.prototype.forEach.call($('stabs').querySelectorAll('button'), function (b) { b.onclick = function () { sport = b.dataset.sp; renderTabs(); $('nbaonly').hidden = sport !== 'nba'; run(); }; }); $('nbaonly').hidden = sport !== 'nba'; }
+  function renderTabs() { $('stabs').innerHTML = SPORTS.map(function (x) { return '<button data-sp="' + x[0] + '" class="' + (sport === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join(''); Array.prototype.forEach.call($('stabs').querySelectorAll('button'), function (b) { b.onclick = function () { sport = b.dataset.sp; renderTabs(); $('nbaonly').hidden = sport !== 'nba'; run(); }; }); $('nbaonly').hidden = sport !== 'nba'; $('backs').hidden = false; }
   function api(method, path, body) { return fetch(path, { method: method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(j.error || 'Failed'); e.status = r.status; throw e; } return j; }); }); }
 
   /* ---- slip ---- */
@@ -198,11 +200,12 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
   }
   function runBack() {
     var b = $('bgo'); b.disabled = true; $('bres').innerHTML = '<div class="empty">Replaying past days… this can take a few seconds.</div>';
-    api('GET', '/api/nba/backtest?from=' + $('bf').value + '&to=' + $('bt').value).then(function (j) {
+    api('GET', '/api/nba/backtest?from=' + $('bf').value + '&to=' + $('bt').value + '&sports=' + sport).then(function (j) {
       var lg = function (n, t) { return '<tr><td>' + n + '</td><td>' + t.bets + '</td><td>' + (t.hitRate == null ? '–' : pct(t.hitRate)) + '</td><td>' + (t.predicted == null ? '–' : pct(t.predicted)) + '</td></tr>'; };
       $('bres').innerHTML = '<div class="note" style="color:var(--tx);background:var(--bg);border-color:var(--line)">' + j.days + ' days · ' + j.games + ' games · ' + j.gamesWithLines + ' with stored lines (' + j.lineSources.scoreboard + ' from the scoreboard, ' + j.lineSources.perGame + ' from the per-game odds feed, ' + j.lineSources.none + ' not found)</div>' +
-        '<table><tr><th>Legs</th><th>Bets</th><th>Actually hit</th><th>Model said</th></tr>' + lg('Moneyline', j.legs.moneyline) + lg('Over/under', j.legs.total) + j.byGrade.map(function (g) { return lg('Grade ' + g.grade, g); }).join('') + '</table>' +
-        '<h3 style="margin-top:16px">Parlays (3 legs, one ticket a day)</h3>' + (j.parlays.length ? '<table><tr><th>Type</th><th>Tickets</th><th>Hit</th><th>Model said</th><th>ROI per $1</th></tr>' + j.parlays.map(function (p) { return '<tr><td>' + esc(p.id) + '</td><td>' + p.tickets + '</td><td>' + p.hits + ' (' + pct(p.hitRate) + ')</td><td>' + pct(p.predicted) + '</td><td class="' + (p.roi >= 0 ? 'st-won' : 'st-lost') + '">' + (p.roi >= 0 ? '+' : '') + p.roi.toFixed(2) + '</td></tr>'; }).join('') + '</table>' : '<div class="empty">No settled parlays in this range (ESPN may not have kept lines for these dates).</div>') +
+        (j.partial ? '<div class="note">Still collecting lines for ' + j.pendingLines + ' games. Press Run backtest again in a minute to continue; what is shown so far is partial.</div>' : '') +
+        '<table><tr><th>Legs</th><th>Bets</th><th>Actually hit</th><th>Model said</th></tr>' + lg('Moneyline', j.legs.moneyline) + lg('Over/under', j.legs.total) + (j.mixed ? j.bySport.map(function (x) { return lg(esc(x.label) + ' moneyline', x.moneyline) + lg(esc(x.label) + ' over/under', x.total); }).join('') : '') + j.byGrade.map(function (g) { return lg('Grade ' + g.grade, g); }).join('') + '</table>' +
+        '<h3 style="margin-top:16px">' + (j.mixed ? 'Mixed-sport parlays' : 'Parlays') + ' (3 legs, one ticket a day)</h3>' + (j.parlays.length ? '<table><tr><th>Type</th><th>Tickets</th><th>Hit</th><th>Model said</th><th>ROI per $1</th></tr>' + j.parlays.map(function (p) { return '<tr><td>' + esc(p.id) + (j.mixed && p.mixedTickets ? ' <small style="color:var(--mut)">(' + p.mixedTickets + ' mixed)</small>' : '') + '</td><td>' + p.tickets + '</td><td>' + p.hits + ' (' + pct(p.hitRate) + ')</td><td>' + pct(p.predicted) + '</td><td class="' + (p.roi >= 0 ? 'st-won' : 'st-lost') + '">' + (p.roi >= 0 ? '+' : '') + p.roi.toFixed(2) + '</td></tr>'; }).join('') + '</table>' : '<div class="empty">No settled parlays in this range (ESPN may not have kept lines for these dates).</div>') +
         '<div class="fine">' + j.notes.map(esc).join('<br>') + '</div>';
     }).catch(function (e) { $('bres').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }).then(function () { b.disabled = false; });
   }
