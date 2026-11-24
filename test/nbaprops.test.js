@@ -34,7 +34,7 @@ const fetchFx = async (u) => {
   if (/athletes\/(100|101|200|201)\/gamelog/.test(u)) return log(12); if (/summary/.test(u)) return box; throw new Error('unexpected ' + u);
 };
 (async () => {
-  const realNow = Date.now; let skew = 0; Date.now = () => realNow() + skew; const jump = () => { skew += 3600e3; }; // the bot caches lines for a minute: move the clock instead of waiting
+  const realNow = Date.now; let skew = Date.parse('2026-11-21T12:00:00Z') - realNow(); Date.now = () => realNow() + skew; const jump = () => { skew += 3600e3; }; // the bot caches lines for a minute: move the clock instead of waiting
   const server = http.createServer(createApp(memoryStore(), { SESSION_SECRET: 's' }, { nbaFetch: fetchFx })); await new Promise((r) => server.listen(0, r)); const base = `http://127.0.0.1:${server.address().port}`;
   const api = async (method, path, body, ck) => { const x = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', cookie: ck || '' }, body: body ? JSON.stringify(body) : undefined }); return { status: x.status, json: await x.json().catch(() => ({})), cookie: (x.headers.get('set-cookie') || '').split(';')[0] }; };
   let x = await api('GET', '/api/nba/props?date=2026-11-22'); assert.equal(x.status, 200); assert.equal(x.json.games[0].homePlayers.length, 2); assert.equal(x.json.games[0].awayPlayers.length, 2); ok('player list per game');

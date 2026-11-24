@@ -27,7 +27,7 @@ const SLATE = {
 const fetchFx = async (u) => { const k = Object.keys(SLATE).sort((a, b) => b.length - a.length).find((p) => u.includes('/' + p + '/')); if (!k) throw new Error('unexpected ' + u); if (failing.has(k)) throw new Error('down'); if (u.includes('standings')) return { children: [] }; if (/scoreboard/.test(u)) return { events: SLATE[k] }; throw new Error('unexpected ' + u); };
 
 (async () => {
-  const realNow = Date.now; let skew = 0; Date.now = () => realNow() + skew; const jump = () => { skew += 3600e3; };
+  const realNow = Date.now; let skew = Date.parse('2026-11-21T12:00:00Z') - realNow(); Date.now = () => realNow() + skew; const jump = () => { skew += 3600e3; };
   const server = http.createServer(createApp(memoryStore(), { SESSION_SECRET: 's' }, { nbaFetch: fetchFx })); await new Promise((r2) => server.listen(0, r2)); const base = `http://127.0.0.1:${server.address().port}`;
   const api = async (method, path, body, ck) => { const x = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', cookie: ck || '' }, body: body ? JSON.stringify(body) : undefined }); return { status: x.status, json: await x.json().catch(() => ({})), cookie: (x.headers.get('set-cookie') || '').split(';')[0] }; };
   let x = await api('GET', '/api/sports'); assert.equal(x.json.sports.length, 5); ok('sports list');

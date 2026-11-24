@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>RITMIC — Stone Warden</title>
+<style>
+:root{--bg:#120c1c;--ink:#f4ecd8;--dim:#a99bc0;--q:#3fb6c4;--w:#e0b83b;--e:#e0553b;--ok:#7be07b}
+*{box-sizing:border-box}[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Courier New",ui-monospace,monospace;overflow:hidden;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#stage{position:relative;width:960px;height:540px;transform-origin:center center;flex:none;background:#000;overflow:hidden}
+canvas{position:absolute;inset:0;width:960px;height:540px;image-rendering:pixelated}
+.bar{position:absolute;height:16px;border:3px solid #000;background:#2b1d3f;box-shadow:0 0 0 2px var(--ink)}
+.bar i{display:block;height:100%;width:100%;transition:width .15s steps(6)}
+#bossbar{left:210px;top:18px;width:470px}#bossbar i{background:#d2493a}
+#squadbar{left:24px;top:18px;width:150px}#squadbar i{background:#4fbf6a}
+.lab{position:absolute;font-size:13px;letter-spacing:2px;text-shadow:2px 2px 0 #000}
+#bossname{left:210px;top:40px}#squadname{left:24px;top:40px}
+#combo{right:24px;top:62px;font-size:16px;text-align:right}
+#banner{position:absolute;left:0;right:380px;top:84px;text-align:center;font-size:22px;font-weight:bold;text-shadow:3px 3px 0 #000;letter-spacing:2px;pointer-events:none}
+#banner small{display:block;font-size:14px;font-weight:normal;color:var(--dim);margin-top:4px;letter-spacing:1px}
+#banner.warn{color:#ff7a5c}#banner.calm{color:var(--ink)}#banner.hit{color:#ffe36a}
+#track{position:absolute;left:210px;right:210px;bottom:20px;height:104px;border:3px solid #000;box-shadow:0 0 0 2px var(--ink);background:rgba(18,12,28,.88);display:flex}
+.slot{flex:1;position:relative;border-right:2px dashed #3a2c52;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;color:var(--dim)}
+.slot:nth-child(4){border-right:4px solid var(--ink)}.slot:last-child{border-right:0}
+.slot b{font-size:30px;color:var(--ink);height:34px;line-height:34px}
+.slot.army{background:rgba(224,85,59,.08)}.slot.me{background:rgba(63,182,196,.08)}
+.slot.pg b{color:var(--ok)}.slot.pf b{color:#ffe36a}.slot.ms b{color:#ff5c5c}
+.slot.cue b{color:#fff;opacity:.35}
+#head{position:absolute;top:0;bottom:0;width:4px;background:#fff;box-shadow:0 0 8px #fff;left:0;pointer-events:none}
+#phase{position:absolute;left:0;right:0;top:-24px;display:flex;font-size:12px;letter-spacing:2px;text-shadow:2px 2px 0 #000}
+#phase span{flex:1;text-align:center}#phase span:first-child{color:var(--q)}#phase span:last-child{color:var(--e)}
+#pads{position:absolute;left:24px;bottom:20px;display:flex;gap:10px}
+.pad{width:56px;height:56px;border:3px solid #000;box-shadow:0 0 0 2px var(--ink);font:bold 24px "Courier New",monospace;color:#000;cursor:pointer;transition:transform .05s}
+.pad[data-k=q]{background:var(--q)}.pad[data-k=w]{background:var(--w)}.pad[data-k=e]{background:var(--e)}
+.pad.on{transform:scale(.88);filter:brightness(1.5)}
+#cheat{position:absolute;right:24px;bottom:20px;width:170px;font-size:13px;line-height:1.7;background:rgba(18,12,28,.88);border:3px solid #000;box-shadow:0 0 0 2px var(--ink);padding:8px 10px}
+#cheat b{letter-spacing:3px}.k{display:inline-block;width:18px;text-align:center;color:#000;font-weight:bold;margin-right:2px}
+.k.q{background:var(--q)}.k.w{background:var(--w)}.k.e{background:var(--e)}
+#judge{position:absolute;left:0;right:380px;top:250px;text-align:center;font-size:28px;font-weight:bold;text-shadow:3px 3px 0 #000;pointer-events:none;opacity:0}
+#judge.show{animation:pop .5s steps(5) forwards}
+@keyframes pop{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-24px)}}
+.screen{position:absolute;inset:0;background:rgba(10,6,18,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:30px}
+.screen h1{font-size:54px;margin:0;letter-spacing:6px;color:#ffd58a;text-shadow:4px 4px 0 #8c3d79}
+.screen h2{margin:0;font-size:40px;letter-spacing:4px}
+.screen p{margin:0;max-width:640px;color:var(--dim);line-height:1.6;font-size:15px}
+.btn{font:bold 20px "Courier New",monospace;padding:12px 28px;background:#ffd58a;color:#241830;border:3px solid #000;box-shadow:0 0 0 2px var(--ink);cursor:pointer;letter-spacing:2px}
+.btn.alt{background:#2b1d3f;color:var(--ink)}
+.opt{font-size:13px;color:var(--dim);display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap}
+.opt input[type=range]{width:160px}
+#shot{position:absolute;inset:0;pointer-events:none}
+#pausebtn{position:absolute;right:24px;top:18px;font-size:12px;padding:2px 8px;background:#2b1d3f;color:var(--ink);border:2px solid var(--ink);cursor:pointer;font-family:inherit}
+</style></head><body>
+<div id="wrap"><div id="stage">
+  <canvas id="cv" width="320" height="180"></canvas>
+  <div class="bar" id="bossbar"><i></i></div><div class="lab" id="bossname">GRUMBOLD THE STONE WARDEN</div>
+  <div class="bar" id="squadbar"><i></i></div><div class="lab" id="squadname">YOUR SQUAD</div>
+  <div class="lab" id="combo"></div>
+  <button id="pausebtn" hidden>PAUSE (P)</button>
+  <div id="banner"></div>
+  <div id="track"><div id="phase"><span>YOUR TURN — TAP ON THE BEAT</span><span>ARMY TURN — LISTEN</span></div>
+    <div class="slot me" data-s="0"><b></b>1</div><div class="slot me" data-s="1"><b></b>2</div><div class="slot me" data-s="2"><b></b>3</div><div class="slot me" data-s="3"><b></b>4</div>
+    <div class="slot army" data-s="4"><b></b>▶</div><div class="slot army" data-s="5"><b></b>▶</div><div class="slot army" data-s="6"><b></b>▶</div><div class="slot army" data-s="7"><b></b>▶</div>
+    <div id="head"></div></div>
+  <div id="pads"><button class="pad" data-k="q">Q</button><button class="pad" data-k="w">W</button><button class="pad" data-k="e">E</button></div>
+  <div id="cheat"><b>COMBOS</b><br>ATTACK <span class="k w">W</span><span class="k w">W</span><span class="k e">E</span><span class="k w">W</span><br>SHIELD <span class="k q">Q</span><span class="k q">Q</span><span class="k w">W</span><span class="k w">W</span></div>
+  <div id="judge"></div>
+  <div class="screen" id="title">
+    <h1>RITMIC</h1><h2>The Stone Warden</h2>
+    <p>One boss. One rhythm. Tap your 4-beat combo on <b>YOUR TURN</b>, then your army echoes it like war drums and acts.<br>
+    When the boss raises his fist — <b>SHIELD</b> before he lands it. Otherwise — <b>ATTACK</b>. A blocked blow leaves him dizzy: hit him hard.</p>
+    <p><b>Q Q W W</b> = shield &nbsp;·&nbsp; <b>W W E W</b> = attack &nbsp;·&nbsp; keys Q W E (or tap the pads)</p>
+    <div class="opt"><label>Audio offset <input type="range" id="off" min="-150" max="150" value="0"> <span id="offv">0 ms</span></label>
+      <label><input type="checkbox" id="skip"> skip training</label><label><input type="checkbox" id="mute"> mute</label></div>
+    <button class="btn" id="go">START</button>
+  </div>
+  <div class="screen" id="pause" hidden><h2>PAUSED</h2><button class="btn" id="resume">RESUME</button></div>
+  <div class="screen" id="end" hidden><h2 id="endt"></h2><p id="endp"></p><button class="btn" id="again">FIGHT AGAIN</button></div>
+</div></div>
+<script src="art.js"></script><script src="core.js"></script><script src="game.js"></script>
+</body></html>
